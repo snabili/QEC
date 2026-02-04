@@ -44,7 +44,7 @@ Where `X` is the central qubit in the patch. In `test/heavyhex_lattice.py` the p
 
 The code above produces this plot:
 
-[My Figure](files/plots/logicpatch_syndromes.png)
+![My Figure](logicpatch_syndromes.png)
 
 Stabilizers role are to find qubit flips' errors via certain qubits called Syndrome or Ancillas. Based on the type of the errors two separate stabilizers are designed
 
