@@ -58,6 +58,37 @@ Their roles is to identify the $\textbf{Phase-Flip}$ errors, the kind of errors 
 - Apply Hadamart gate to ancillas to change basis to Z-basis
 - Measure ancillas
 
+$$
+\begin{array}{c}
+\text{Ancilla (A)} \\
+\text{Data (D)}
+\end{array}
+\text{---}
+\begin{array}{c}
+|0\rangle \\
+|\psi\rangle
+\end{array}
+\xrightarrow{H_A}
+\begin{array}{c}
+|+\rangle \\
+|\psi'\rangle
+\end{array}
+\xrightarrow{CNOT(A,D)}
+\begin{array}{c}
+|+\text{ or }-\rangle \\
+|\psi''\rangle
+\end{array}
+\xrightarrow{H_A}
+\begin{array}{c}
+|0\text{ or }1\rangle \\
+|\psi'''\rangle
+\end{array}
+\xrightarrow{A, Measure}
+\begin{array}{c}
+|0\text{ or }1\rangle
+\end{array}
+$$
+
 ### Z_Stabilizers:
 Their roles is to identify the $\textbf{Bit-Flip}$ errors, the kind of errors that occurs due to X-Pauli operation on a data qubit. To identify this error, Z-Syndromes are used. The steps to identify the bit-flip error on quantum circuits:
 
@@ -65,6 +96,27 @@ Their roles is to identify the $\textbf{Bit-Flip}$ errors, the kind of errors th
 - Apply X (Bit-Flip) error to data qubit
 - Apply CNOT gate by setting data as control and ancillas as target qubit: CNOT(D,A)
 - Measure ancillas
+
+$$
+\begin{array}{c}
+\text{Ancilla (A)} \\
+\text{Data (D)}
+\end{array}
+\text{---}
+\begin{array}{c}
+|0\rangle \\
+|\psi\rangle
+\end{array}
+\xrightarrow{CNOT(D,A)}
+\begin{array}{c}
+|0\text{ or }1\rangle \\
+|\psi\rangle
+\end{array}
+\xrightarrow{A, Measure}
+\begin{array}{c}
+|0\text{ or }1\rangle
+\end{array}
+$$
 
 ### Running python script:
 To run the X and Z stabilizer:
