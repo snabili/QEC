@@ -1,6 +1,9 @@
 import matplotlib.pyplot as plt
 import networkx as nx
 
+from qiskit.circuit import QuantumCircuit
+from qiskit_aer import AerSimulator
+
 
 def find_d3_patches(graph):
     patches = []
@@ -46,7 +49,7 @@ def visualize_patch(graph, center_node):
             node_size=300, font_weight='bold', edge_color='gray')
     
     plt.title(f"17-Qubit Logical Patch Centered at {center_node}")
-    plt.savefig('plots/logicpatch.pdf')
+    plt.savefig('files/plots/logicpatch.pdf')
 
 
 def get_true_roles(full_graph, patch_nodes):
@@ -155,4 +158,165 @@ def draw_logical_qubit(G, result):
     plt.title(f"Heavy-Hex d=3 Logical Qubit\nRed = Logical X | Green = Logical Z")
     plt.legend(scatterpoints=1)
     plt.axis('off')
-    plt.savefig('plots/logicpatch_syndromes.pdf')
+    plt.savefig('files/plots/logicpatch_syndromes.png')
+
+
+def build_test_stabilizer(result, roles, G):
+    '''
+    Generates the stabilizer for a specific patch of qubit nodes
+    1 - Save dataqubits, X-syndrome and Z-syndrome qubit nodes
+    2 - Check Z-syndrome by bit-flipping data qubits next to the syndrome followed by a measurement
+    3 - Run the stabilizer test
+    '''
+    data_qubits = roles['data'] # [0, 2, 4, 6, 16, 22, 24]
+    x_syns = roles['x_syndrome']
+    z_syns = roles['z_syndrome'] # [1,5]
+    
+    # Create circuit: 127 qubits, 8 classical bits
+    qc = QuantumCircuit(127, 8)    
+    
+    '''qc.x([2,4]) # bit flip data qubits next to the z-syndromes: 2 and/or 4
+    qc.barrier()'''
+    # bit_idx tracks which classical bit we are writing to
+    bit_idx = 0
+    # --- 1. Z-Syndrome Measurements (ZZ) ---
+    for s_qubit in z_syns:
+        neighbors = [n for n in G.neighbors(s_qubit) if n in data_qubits] # [2,4]
+        print(f'Z-syndrom qubits: {s_qubit}, neighbors of Z-syndrome: {neighbors}')
+        for data_q in neighbors:
+            qc.cx(data_q, s_qubit) # apply CX: data is control, ancillas is target        
+        qc.measure(s_qubit, bit_idx)
+        bit_idx += 1
+        qc.barrier()
+    return qc
+
+def run_stabilizer(qc):
+    # Initialize a clean simulator without a target backend
+    simulator = AerSimulator(method='statevector')
+    
+    # Run directly without calling transpile(qc, simulator)
+    # The simulator will automatically adjust its width to match the qc
+    job = simulator.run(qc, shots=1024)
+    result = job.result()
+    
+    counts = result.get_counts()
+    print(f"Syndrome Outcomes: {counts}")
+    
+    return counts
+
+
+def build_heavy_hex_stabilizer(result, roles,G):
+    '''
+    Generates the stabilizer for a specific patch of qubit nodes
+    1 - Save dataqubits, X-syndrome and Z-syndrome qubit nodes
+    '''
+    data_qubits = roles['data']
+    x_syns = roles['x_syndrome']
+    z_syns = roles['z_syndrome']
+    
+    # Create circuit: 127 qubits, 8 classical bits
+    qc = QuantumCircuit(127, 8)  
+    for q in range(127): 
+        if q not in result['patch']: 
+            qc.reset(q)
+
+
+    # bit_idx tracks which classical bit we are writing to
+    bit_idx = 0
+    res = []
+    print('Z-syndrom qubits --> neighbors of Z-syndrome: ')
+    # --- 1. Z-Syndrome Measurements (ZZ) ---
+    for s_qubit in z_syns:
+        qc.reset(s_qubit)
+        neighbors = [n for n in G.neighbors(s_qubit) if n in data_qubits]
+        res.append(f"{s_qubit} -> {neighbors}")
+        #print(f'Z-syndrom qubits: {s_qubit}, neighbors of Z-syndrome: {neighbors}')
+        for data_q in neighbors:
+            qc.cx(data_q, s_qubit) # apply CX: data is control, ancillas is target        
+        qc.measure(s_qubit, bit_idx)
+        bit_idx += 1 
+    print(res)  
+    qc.barrier()
+
+    # --- 2. Prepare data qubits in |+> state
+    for d_q in data_qubits:
+        qc.h(d_q)
+    qc.barrier()
+    res = []
+    print('X-syndrom qubits --> neighbors of X-syndrome: ')
+    # --- 3. X-Syndrome Measurements (XXXX) ---
+    for s_qubit in x_syns:
+        qc.reset(s_qubit)
+        qc.h(s_qubit) # apply Hadamart gate to change basis to X-basis
+        neighbors = [n for n in G.neighbors(s_qubit) if n in data_qubits]
+        res.append(f"{s_qubit} -> {neighbors}")
+        #print(f'X-syndrom qubits: {s_qubit}, neighbors of X-syndrome: {neighbors}')
+        for data_q in neighbors:
+            qc.cx(s_qubit, data_q)
+        qc.h(s_qubit) # apply 2nd Hadamart to change back basis to Z-basis        
+        qc.measure(s_qubit, bit_idx)
+        bit_idx += 1
+    print(res)
+    qc.barrier()
+        
+    return qc
+
+
+def check_qubit_connectivity(G, qubit_id, roles):
+    neighbors = list(G.neighbors(qubit_id))
+    
+    # See which neighbors are syndromes
+    z_checkers = [n for n in neighbors if n in roles['z_syndrome']]
+    x_checkers = [n for n in neighbors if n in roles['x_syndrome']]
+    
+    print(f"--- Pivot Qubit {qubit_id} Analysis ---")
+    print(f"Connected Z-Syndromes: {z_checkers}")
+    print(f"Connected X-Syndromes: {x_checkers}")
+    
+    # Find their positions in your syndrome bit-string
+    bits = roles['z_syndrome'] + roles['x_syndrome']
+    x_bits = [bits.index(s) for s in x_checkers]
+    z_bits = [bits.index(s) for s in z_checkers]
+    '''z_bits = [roles['z_syndrome'].index(s) for s in z_checkers]
+    x_bits = [roles['x_syndrome'].index(s) + 4 for s in x_checkers]'''
+    
+    print(f"Expected flipped bits in output string: {z_bits + x_bits}")
+
+from qiskit import QuantumCircuit
+
+def build_full_cycle(result, roles, max_idx,G):
+    qc = QuantumCircuit(max_idx, 8)
+    data_qubits = roles['data']
+    x_syns = roles['x_syndrome']
+    z_syns = roles['z_syndrome']
+    
+    bit_idx = 0
+
+    # --- Section 1: Z-Syndromes (Detects X errors) ---
+    # Logic: Data controls Ancilla
+    for s_qubit in z_syns:
+        qc.reset(s_qubit)
+        neighbors = [n for n in G.neighbors(s_qubit) if n in data_qubits and n in result['patch']]
+        for data_q in neighbors:
+            qc.cx(data_q, s_qubit)
+        qc.measure(s_qubit, bit_idx)
+        bit_idx += 1
+    
+    qc.barrier()
+
+    # --- Section 2: X-Syndromes (Detects Z errors) ---
+    # Logic: Ancilla controls Data, wrapped in Hadamards
+    for s_qubit in x_syns:
+        qc.reset(s_qubit)
+        qc.h(s_qubit)
+        neighbors = [n for n in G.neighbors(s_qubit) if n in data_qubits and n in result['patch']]
+        for data_q in neighbors:
+            # Note: For X-parity, Ancilla is the Control
+            qc.cx(s_qubit, data_q)
+        qc.h(s_qubit)
+        #qc.reset(s_qubit)
+        qc.measure(s_qubit, bit_idx)
+        bit_idx += 1
+        
+    return qc
+
