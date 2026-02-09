@@ -5,11 +5,9 @@ import sys, os, argparse
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from qec import config, utils
 
+from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
 
-# Add parser argument to build 17 qubits patch based on qubit id 
-parser = argparse.ArgumentParser(description="QEC on IBM_FEZ backend")
-parser.add_argument("qid", type=int,  help="qubit_id", default=23)
-args = parser.parse_args()
+
 
 # define path to read/write files
 plotpath = config.PLOT_DIR
@@ -18,9 +16,19 @@ datapath = config.DATA_DIR
 with open(datapath + "/graph.pkl", "rb") as f:
     G = pkl.load(f)
 
-result = utils.find_logical_qubit_full(G, args.qid)
 
+scripter = utils.Scripter()
+
+@scripter
 def draw_logical_qubit(G, result):
+    
+    # Add parser argument to build 17 qubits patch based on qubit id 
+    parser = argparse.ArgumentParser(description="QEC Patch with distance == 3")
+    parser.add_argument("qid", type=int,  help="qubit_id", default=23)
+    args = parser.parse_args()
+
+    result = utils.find_logical_qubit_full(G, args.qid)
+
     patch_nodes = result['patch']
     data_nodes = result['data']
     x_path = result['logical_x']
@@ -44,5 +52,33 @@ def draw_logical_qubit(G, result):
     plt.axis('off')
     plt.savefig(plotpath + '/logicpatch_syndromes.png')
 
+@scripter
+def plot_qc():
+    parser = argparse.ArgumentParser(description="Quantum Circuit plot")
+    parser.add_argument("stb", type=str,  help="stabilizer", default=23)
+    args = parser.parse_args()
+	# Define named registers
+    ancilla = QuantumRegister(1, name='ancilla |0>')
+    data_qubit = QuantumRegister(1, name=f'data qubit |\psi>')
+    c_reg = ClassicalRegister(1, name='syndrome')
+	
+	# Create the circuit using the registers
+    qc = QuantumCircuit(ancilla, data_qubit, c_reg)
+	
+    if args.stb == "X":
+        # Add gates using register indexing
+        qc.h(ancilla[0])
+        qc.h(data_qubit[0])
+        qc.cx(ancilla[0], data_qubit[0])
+        qc.h(ancilla[0])
+        qc.h(data_qubit[0])
+    else:
+        qc.cx(data_qubit[0], ancilla[0])
+        qc.measure(ancilla[0], c_reg[0])
+	
+	# Save as a transparent PNG for GitHub
+    filename = '/x_stabilizer.png' if args.stb == "X" else '/z_stabilizer.png'
+    qc.draw('mpl', filename=plotpath + filename, style={'backgroundcolor': '#ffffff00'})
+
 if __name__ == '__main__':
-    draw_logical_qubit(G, result)
+    scripter.run()
