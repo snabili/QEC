@@ -59,6 +59,7 @@ Their roles is to identify the $\textbf{Phase-Flip}$ errors, the kind of errors 
 - Measure ancillas
 
 $$
+\small
 \begin{array}{c}
 \text{Ancilla (A)} \\
 \text{Data (D)}
@@ -98,6 +99,7 @@ Their roles is to identify the $\textbf{Bit-Flip}$ errors, the kind of errors th
 - Measure ancillas
 
 $$
+\small
 \begin{array}{c}
 \text{Ancilla (A)} \\
 \text{Data (D)}
