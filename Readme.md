@@ -73,7 +73,7 @@ $$
 |+\rangle \\
 |\psi'\rangle
 \end{array}
-\xrightarrow{CNOT(A,D)}
+\xrightarrow{\qquad CNOT(A,D) \qquad}
 \begin{array}{c}
 |+\text{ or }-\rangle \\
 |\psi''\rangle
@@ -107,7 +107,7 @@ $$
 |0\rangle \\
 |\psi\rangle
 \end{array}
-\xrightarrow{CNOT(D,A)}
+\xrightarrow{\qquad CNOT(D,A) \qquad}
 \begin{array}{c}
 |0\text{ or }1\rangle \\
 |\psi\rangle
