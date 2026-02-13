@@ -3,6 +3,11 @@ import pymatching
 import matplotlib.pyplot as plt
 import numpy as np
 
+import os, sys
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from qec import config
+
+plotpath = config.PLOT_DIR
 
 # code to simulate/compute threshold for logical error
 
@@ -49,4 +54,4 @@ plt.ylabel('Logical Error Rate ($P_L$)')
 plt.grid(True, which="both", ls="-", alpha=0.5)
 plt.legend()
 plt.title("Surface Code Threshold Crossing")
-plt.show()
+plt.savefig(plotpath + '/p_threshold.pdf')
