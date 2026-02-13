@@ -10,7 +10,7 @@ conda create --name qecenv python=3.11 # qiskit_aer does not work with newer pyt
 conda activate qecenv
 conda install pip
 
-pip install stim # to simulate circuits using surface code using Google Quantum AI library, for high speed simulation of error correction
+pip install stim # to simulate circuits using Google Quantum AI library, for high speed simulation of error correction
 pip install pymatching # this will import numpy, matplotlib, scipy; used to decode the error
 pip install qiskit
 pip install qiskit_aer
@@ -30,6 +30,14 @@ $T_2$ (Dephasing): The time it takes for the qubit to lose its quantum phase.
 Readout Error: The probability that a $\lvert 0 \rangle$ is measured as a $\lvert 1 \rangle$ (or vice versa).
 
 Gate Errors: The specific error rate for operations like sx, x, and cx.
+
+## Logical Qubits
+Software-designed qubits grouped from many physical qubits to act as a single, reliable unit to detect and collect errors. To compute logical error for various number of qubits:
+```
+python test/comp_threshold.py
+```
+The plot produced by this code:
+![My Figure](p_threshold.png)
 
 ## Stabilizers:
 First step in applying stabilizer in QEC code is to define the right patch with a desired distance. IBM heron heavy-hex machines are Heron class featuring 156 qubits.
