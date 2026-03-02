@@ -1,10 +1,14 @@
 import pickle as pkl
 import sys, os, argparse 
 import numpy as np
+from qiskit.circuit import QuantumCircuit
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from qec import utils, config
 
-from qiskit.circuit import QuantumCircuit
+'''
+This code intention is to verify the stabilizers
+w/wo injecting any noises
+'''
 
 # Add parser argument to build 17 qubits patch based on qubit id 
 parser = argparse.ArgumentParser(description="QEC on IBM_FEZ machine")
@@ -12,7 +16,6 @@ parser.add_argument("script",type=str,help="Name of script function to run (e.g.
 parser.add_argument("qid", type=int,  help="qubit_id", default=23)
 parser.add_argument("zsyn_mon",type=int, help="Z_Syndrome monitoring")
 parser.add_argument("xsyn_mon",type=int, help="X_Syndrome monitoring", default=16)
-
 
 args = parser.parse_args()
 
@@ -44,7 +47,7 @@ def stabilizer():
 def stabilizer_noise():
     '''
     Check for Z-Errors & X_Errors by adding noise manually
-        - Allocate all the qubit in the patch --> might exceed patch size
+        - Allocate all the qubits in the patch --> might exceed patch size
         - Allocate 8 classical bits for syndrome measurements
         - X-Stabilizer to detect Phase-Flip (Z) Errors; 
             Measure ONLY X-syndromes to avoid Z-measurement noise; map it to classical bits 2-7

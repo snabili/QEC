@@ -12,6 +12,11 @@ import networkx as nx
 from qiskit.circuit import QuantumCircuit
 from qiskit_aer import AerSimulator
 
+
+'''
+This code's purpose is to gather functions required to run other codes
+'''
+
 def setup_logging(name='thermo_logger', log_path=None, level=logging.INFO, console=True):
     """
     Create a reusable logger with both file and console outputs.

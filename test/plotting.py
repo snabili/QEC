@@ -7,7 +7,9 @@ from qec import config, utils
 
 from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
 
-
+'''
+This code collects all plottings in a decorator format
+'''
 
 # define path to read/write files
 plotpath = config.PLOT_DIR
@@ -21,7 +23,6 @@ scripter = utils.Scripter()
 
 @scripter
 def draw_logical_qubit(G, result):
-    
     # Add parser argument to build 17 qubits patch based on qubit id 
     parser = argparse.ArgumentParser(description="QEC Patch with distance == 3")
     parser.add_argument("qid", type=int,  help="qubit_id", default=23)
