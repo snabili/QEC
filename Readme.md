@@ -1,15 +1,28 @@
-# Quantum Error Correction for SuperConducting Qubits
-## General Information
-This repo is intended to simulate QEC codes for IBM heavy-hex qubits. 
+# Quantum Error Correction (QEC) Study
+## Purpose
+Quantum computers are significantly more susceptible to noise than classical computers due to short qubit coherence times and imperfect gate operations. This repository contains implementations designed to study and benchmark Quantum Error Correction algorithms, specifically targeting IBM’s superconducting architectures, using calibration data and noise profiles from IBM Quantum's online backends.
 
-## Technical Details 
+## Technical Stack
+This project uses a mix of:
+
+- Simulation: Stim (High-speed Clifford circuit simulation)
+
+- Decoding: PyMatching (Minimum Weight Perfect Matching decoder)
+
+- Hardware Interface: Qiskit (Accessing IBM Quantum backend properties)
+
+## Setting Environment
+To setup the proper environment create a conda environment:
+
+```
+conda create --name qecenv python=3.10 # qiskit_aer does not work with newer python versions
+conda activate qecenv
+conda install pip
+```
+
 Import the following packages:
 
 ```
-conda create --name qecenv python=3.11 # qiskit_aer does not work with newer python versions
-conda activate qecenv
-conda install pip
-
 pip install stim # to simulate circuits using Google Quantum AI library, for high speed simulation of error correction
 pip install pymatching # this will import numpy, matplotlib, scipy; used to decode the error
 pip install qiskit
@@ -20,18 +33,54 @@ pip install pandas
 pip install seaborn
 ```
 
+The above packages are added to qec_env.yml, to skip the above commands and to buid the environment in one run:
+
+`conda env create -f qec_env.yml`
+
+This is a first time setup and for later use run the following command to set the environment every time you want to run the code:
+
+`conda activate qecenv`
+
+
+
 ## Datasets
-The CSV files dowloaded from IBM contain these error information per qubit:
+To access the IBM calibrated dataset:
+- Open an account from [ibm_webpage](https://cloud.ibm.com/login)
+- Download the api key
 
-$T_1$ (Decoherence): The time it takes for a qubit to relax from $\lvert 1 \rangle$ to $\lvert 0 \rangle$
+The calibration datasets are categorized in three main classes:
+- Coherence times in $\mu s$ including the decoherence and dephasing times
+- Gate properties in terms of average errors for single-qubit, double-qubits (entangled qubits), and gate duration in $ns$ 
+- Measurement errors including the readout error 
 
-$T_2$ (Dephasing): The time it takes for the qubit to lose its quantum phase.
 
-Readout Error: The probability that a $\lvert 0 \rangle$ is measured as a $\lvert 1 \rangle$ (or vice versa).
+## Code Structure:
 
-Gate Errors: The specific error rate for operations like sx, x, and cx.
+```
+├── qec --> the source codes
+│   ├── __init__.py
+│   ├── config.py
+│   ├── data.py
+│   ├── functions.py
+│   └── utils.py
+├── qec_env.yml
+├── Readme.md
+├── test
+│   ├── comp_threshold.py --> to plot $P_L$ vs $P_{phys}$ to extract threshold
+│   ├── heavyhex_lattice.py --> diagnozes surface code errors
+│   ├── ibm_api.py --> keep it hidden
+│   ├── plotting.py
+│   ├── simulate_noise_model.py --> Plots errors from downloaded CSV file
+│   └── stabilizer.py --> running stabilizer on surface code 
+├── files
+├── plots
+```
 
-## Logical Qubits
+## Surface Code
+The gold standard of error correction code for QEC in industry (Google, IBM), because of its high fault-tolerance threshold (∼ 1%) & physical qubits space connectivity. It maps physical complex noises (e.g. leakage, decoherence) into discrete bit-flip
+(X) and phase-flip (Z) errors. The elements of the surface code are: 
+
+### Logical Qubits
 Software-designed qubits grouped from many physical qubits to act as a single, reliable unit to detect and collect errors. To compute logical error for various number of qubits:
 ```
 python test/comp_threshold.py
@@ -39,7 +88,8 @@ python test/comp_threshold.py
 The plot produced by this code:
 ![My Figure](p_threshold.png)
 
-## Stabilizers:
+### Stabilizers:
+Operators that represent the health condition of the system.
 First step in applying stabilizer in QEC code is to define the right patch with a desired distance. IBM heron heavy-hex machines are Heron class featuring 156 qubits.
 
 To select the proper number of qubits and maitain their connectivity:
@@ -56,7 +106,7 @@ The code above produces this plot:
 
 Stabilizers role are to find qubit flips' errors via certain qubits called Syndrome or Ancillas. Based on the type of the errors two separate stabilizers are designed
 
-### X_Stabilizers:
+#### X_Stabilizers:
 Their roles is to identify the $\textbf{Phase-Flip}$ errors, the kind of errors that occurs due to Z-Pauli operation on a qubit. To identify this error, X-Syndromes are used. The steps to identify the phase-flip error on quantum circuits:
 
 - Reset data/ancilla qubits' state to $\lvert 0 \rangle$
@@ -69,7 +119,7 @@ Their roles is to identify the $\textbf{Phase-Flip}$ errors, the kind of errors 
 ![My Figure](x_stabilizer.png)
 
 
-### Z_Stabilizers:
+#### Z_Stabilizers:
 Their roles is to identify the $\textbf{Bit-Flip}$ errors, the kind of errors that occurs due to X-Pauli operation on a data qubit. To identify this error, Z-Syndromes are used. The steps to identify the bit-flip error on quantum circuits:
 
 - Reset data/ancilla qubits' state to $\lvert 0 \rangle$
@@ -79,13 +129,12 @@ Their roles is to identify the $\textbf{Bit-Flip}$ errors, the kind of errors th
 
 ![My Figure](z_stabilizer.png)
 
-
-### Running python script:
+#### Running X and Z Stabilizers:
 To run the X and Z stabilizer:
 
-```python test/stabilizer.py X Y Z```
+```python test/stabilizer.py A B C```
 
-Where `X` is the central qubit of the selected patch, `Y` is the data qubit next to the Z-syndrome, and `Z` is the data qubit adjacent to the X-syndrome. After running the above code the syndrome outcome will be shown as follow:
+Where `A` is the central qubit of the selected patch, `B` is the data qubit next to the Z-syndrome, and `C` is the data qubit adjacent to the X-syndrome. After running the above code the syndrome outcome will be shown as follow:
 
 ```
 python test/stabilizer.py 23 4 16
@@ -95,3 +144,7 @@ Syndrome Outcomes: {'00010100': 1024}
 Z_stabilizer (Should show flip in bit for Qubit 4 error):
 Syndrome Outcomes: {'00000010': 1024}
 ```
+
+
+
+
