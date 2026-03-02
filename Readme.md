@@ -6,12 +6,16 @@ Quantum computers are significantly more susceptible to noise than classical com
 This project uses a mix of:
 
 - Simulation: Stim (High-speed Clifford circuit simulation)
-
 - Decoding: PyMatching (Minimum Weight Perfect Matching decoder)
-
 - Hardware Interface: Qiskit (Accessing IBM Quantum backend properties)
 
-## Setting Environment
+## Clone & Setting Environment
+To clone this repository to your area:
+
+```
+git clone https://github.com/snabili/QEC.git
+```
+
 To setup the proper environment create a conda environment:
 
 ```
@@ -35,13 +39,15 @@ pip install seaborn
 
 The above packages are added to qec_env.yml, to skip the above commands and to buid the environment in one run:
 
-`conda env create -f qec_env.yml`
+```
+conda env create -f qec_env.yml
+```
 
 This is a first time setup and for later use run the following command to set the environment every time you want to run the code:
 
-`conda activate qecenv`
-
-
+```
+conda activate qecenv
+```
 
 ## Datasets
 To access the IBM calibrated dataset:
@@ -132,7 +138,9 @@ Their roles is to identify the $\textbf{Bit-Flip}$ errors, the kind of errors th
 #### Running X and Z Stabilizers:
 To run the X and Z stabilizer:
 
-```python test/stabilizer.py A B C```
+```
+python test/stabilizer.py A B C
+```
 
 Where `A` is the central qubit of the selected patch, `B` is the data qubit next to the Z-syndrome, and `C` is the data qubit adjacent to the X-syndrome. After running the above code the syndrome outcome will be shown as follow:
 
