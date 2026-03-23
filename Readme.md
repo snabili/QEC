@@ -77,7 +77,9 @@ The calibration datasets are categorized in three main classes:
 │   ├── ibm_api.py --> keep it hidden
 │   ├── plotting.py
 │   ├── simulate_noise_model.py --> Plots errors from downloaded CSV file
-│   └── stabilizer.py --> running stabilizer on surface code 
+│   ├── stabilizer.py --> running stabilizer on surface code 
+│   ├── xt_leakage.py --> crosstalk effect on EPC using fully simulated backend
+│   └── xtalk_error.py --> crosstalk effect on EPC using online IBM backend; open-instance account have limited time usage
 ├── files
 ├── plots
 ```
@@ -112,7 +114,7 @@ The code above produces this plot:
 
 Stabilizers role are to find qubit flips' errors via certain qubits called Syndrome or Ancillas. Based on the type of the errors two separate stabilizers are designed
 
-#### X_Stabilizers:
+### X_Stabilizers:
 Their roles is to identify the $\textbf{Phase-Flip}$ errors, the kind of errors that occurs due to Z-Pauli operation on a qubit. To identify this error, X-Syndromes are used. The steps to identify the phase-flip error on quantum circuits:
 
 - Reset data/ancilla qubits' state to $\lvert 0 \rangle$
@@ -122,10 +124,10 @@ Their roles is to identify the $\textbf{Phase-Flip}$ errors, the kind of errors 
 - Apply Hadamart gate to ancillas to change basis to Z-basis
 - Measure ancillas
 
-![My Figure](x_stabilizer.png)
+<img src="x_stabilizer.png" width="400">
 
 
-#### Z_Stabilizers:
+### Z_Stabilizers:
 Their roles is to identify the $\textbf{Bit-Flip}$ errors, the kind of errors that occurs due to X-Pauli operation on a data qubit. To identify this error, Z-Syndromes are used. The steps to identify the bit-flip error on quantum circuits:
 
 - Reset data/ancilla qubits' state to $\lvert 0 \rangle$
@@ -133,11 +135,10 @@ Their roles is to identify the $\textbf{Bit-Flip}$ errors, the kind of errors th
 - Apply CNOT gate by setting data as control and ancillas as target qubit: CNOT(D,A)
 - Measure ancillas
 
-![My Figure](z_stabilizer.png)
+<img src="z_stabilizer.png" width="400">
 
-#### Running X and Z Stabilizers:
+### Running X and Z Stabilizers:
 To run the X and Z stabilizer:
-
 ```
 python test/stabilizer.py A B C
 ```
@@ -153,6 +154,26 @@ Z_stabilizer (Should show flip in bit for Qubit 4 error):
 Syndrome Outcomes: {'00000010': 1024}
 ```
 
+### Simulating Crosstalk effect:
+Crosstalk arises from microwave‑pulse interference between neighboring qubits during gate execution. In practice, it refers to how a two‑qubit gate applied to a target pair can unintentionally disturb the state or performance of a nearby spectator qubit.
+
+To observe this effect cleanly, the target pair should be chosen from qubits with low intrinsic gate error, ensuring that crosstalk is not masked by unrelated noise sources.
+
+In the simulation, the crosstalk effect is modeled as an unintended rotation $\theta$ induced on the spectator qubit. This rotation occurs because the spectator is coupled to the target pair through a tunable coupler with interaction frequency $\xi$. The induced rotation during a CZ‑gate of duration $t_{cz}$ is approximated by:
+
+$$
+\theta = 2 * \pi * \xi * t_{cz} 
+$$
+
+IBM’s tunable couplers typically limit $\xi$ to around $1 kHz$, which makes the real crosstalk effect extremely small. To make the effect visible in simulation, the code scales $\xi$ by a factor of 100.
+
+Because IBM’s open‑access accounts provide limited access to real hardware backends, the crosstalk analysis is performed entirely on a simulated backend. To run the simulation, use the following code:
+
+``` python test/xtalk_error.py ```
+
+The effect of crosstalk with $\xi = 100 kHz$ is shown below with Simultaneus being the Crosstalk included effect and the Isolated legend showing without the effect:
+
+<img src="xt_effect.png" width="400">
 
 
 
