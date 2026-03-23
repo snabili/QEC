@@ -173,7 +173,7 @@ Because IBM’s open‑access accounts provide limited access to real hardware b
 
 The effect of crosstalk with $\xi = 100 kHz$ is shown below with Simultaneus being the Crosstalk included effect and the Isolated legend showing without the effect:
 
-<img src="xt_effect.png" width="400">
+![My Figure](xt_effect.png)
 
 
 
