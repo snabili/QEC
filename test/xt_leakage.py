@@ -25,7 +25,6 @@ plotpath = config.PLOT_DIR
 
 logger = utils.setup_logging(log_path=logpath + "/xtalk_gate-errors.txt")
 
-
 service = QiskitRuntimeService()
 backend = service.backend("ibm_fez")
 props = backend.properties()
@@ -55,13 +54,14 @@ spec_noise = thermal_relaxation_error(t1, t2, tg)
 avg_fid = average_gate_fidelity(spec_noise)
 avg_err_calculated = 1 - avg_fid
 
-logger.info(f"Manual Formula result: {spec_err_manual:.8f}")
-logger.info(f"Calculated from Object: {avg_err_calculated:.8f}")
-logger.info(f"Difference: {abs(spec_err_manual - avg_err_calculated):.8e}")
+logger.info('Thermal Relaxation Error: Manual vs qiskit results')
+logger.info(f'  Manual Formula result: {spec_err_manual:.8f}')
+logger.info(f'  Qiskit from Object: {avg_err_calculated:.8f}')
+logger.info(f'  Difference: {abs(spec_err_manual - avg_err_calculated):.2e}')
 
 # --------- NoiseModel: iso & xt modes ---------------------
-# --------- N.B.: EPC values here are not ------------------
-# ---------     realistic as sx is included redundently ----
+# --------- N.B.: EPC values here are not realistic --------
+# ---------       as sx is included redundently ------------
 bgates = ["id", "rz", "sx", "x", "cz"] # defined instructions in qiskit
 
 '''
@@ -88,7 +88,7 @@ noise_xt.add_quantum_error(spec_noise, "sx", [spectator])
 noise_xt.add_quantum_error(z_unitary, "sx", [spectator])
 sim_xt = AerSimulator(noise_model=noise_xt, basis_gates=bgates)
 
-# -------- Define RB experiments WITH EXPLICIT ANALYSIS ATTACHED
+# -------- Define RB experiments WITH EXPLICIT ANALYSIS ATTACHED, and exact number of seeds
 lengths = [1, 10, 50, 100, 150, 200, 400, 800]
 nsamples = 50
 nshots = 10000
@@ -154,7 +154,7 @@ plt.grid(True, alpha=0.3)
 plt.legend()
 plt.tight_layout()
 plt.yscale('log')
-plt.savefig(plotpath + 'xt_effect.pdf')
+plt.savefig(plotpath + '/xt_effect.pdf')
 
 
 # ---- Method2: Manually fitting with scipy ------------
