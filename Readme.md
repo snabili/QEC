@@ -162,7 +162,7 @@ To observe this effect cleanly, the target pair should be chosen from qubits wit
 In the simulation, the crosstalk effect is modeled as an unintended rotation $\theta$ induced on the spectator qubit. This rotation occurs because the spectator is coupled to the target pair through a tunable coupler with interaction frequency $\xi$. The induced rotation during a CZ‑gate of duration $t_{cz}$ is approximated by:
 
 $$
-\theta = 2 * \pi * \xi * t_{cz} 
+\theta = 2 \times \pi \times \xi \times t_{cz} 
 $$
 
 IBM’s tunable couplers typically limit $\xi$ to around $1 kHz$, which makes the real crosstalk effect extremely small. To make the effect visible in simulation, the code scales $\xi$ by a factor of 100.
