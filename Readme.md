@@ -74,7 +74,8 @@ The calibration datasets are categorized in three main classes:
 ├── test
 │   ├── comp_threshold.py --> to plot $P_L$ vs $P_{phys}$ to extract threshold
 │   ├── heavyhex_lattice.py --> diagnozes surface code errors
-│   ├── ibm_api.py --> keep it hidden
+│   ├── ibm_api.py --> keep it hidden in .gitignore file
+│   ├── leakage.py --> Computes leakage error based on pure simulation
 │   ├── plotting.py
 │   ├── simulate_noise_model.py --> Plots errors from downloaded CSV file
 │   ├── stabilizer.py --> running stabilizer on surface code 
@@ -175,5 +176,29 @@ The effect of crosstalk with $\xi = 100 kHz$ is shown below with Simultaneus bei
 
 ![My Figure](xt_effect.png)
 
+### Simulating Leakage error:
+Leakage occurs when a transmon qubit is excited to energy states beyond the computational subspace ($ket{0}$ and $\ket{1}$). While the anharmonicity—provided by the nonlinear inductance of the Josephson Junction—is designed to isolate the first two levels, high-speed microwave (MW) pulses can still inadvertently drive transitions to higher energy levels, such as the $\ket{2}$ state.
+
+To analyze these effects, this simulation utilizes the following framework:
+
+1 - Gate Context: Analysis is focused on leakage induced during single-qubit gate operations.
+
+2 - Three-Level System: The transmon is modeled as a qutrit with states $\ket{0}$, $\ket{1}$, and $\ket{2}$.
+
+3 - Target Operation: The study simulates a standard X-gate (bit-flip), requiring a precise $\pi$-pulse calibration.
+
+4 - DRAG Compensation: Used Derivative Removal by Adiabatic Gate (DRAG) technique. This uses a parameter $\beta$ to scale the derivative of the Gaussian envelope, effectively canceling out-of-subspace (phase) transitions.
+
+5 - Parameter Optimization: Both the MW-pulse duration ($T$) and the DRAG coefficient ($\beta$) are swept to identify the "Leakage Floor" of the system.
+
+6 - Pulse Shaping: The drive utilizes a Gaussian envelope, where the complex component (phase shift) is determined by the $\beta$-scaled derivative.
+
+To run the leakage estimation script, execute the following:
+
+``` python test/leakage.py ```
+
+The simulation generates a population plot (shown below) tracking the state evolution. The "Optimized" result minimizes the population in state $\ket{2}$ at the end of the gate duration.
+
+ ![My Figure](leakage_population.png)
 
 
