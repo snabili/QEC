@@ -55,8 +55,7 @@ def get_actual_noise_model(result, roles, clean_G, backend):
     noise_data = {}    
     # Extract specific T1, T2 and Readout for each qubit in the patch
     for q in result['patch']:
-        t1 = props.t1(q)
-        t2 = props.t2(q)
+        t1, t2 = props.t1(q), props.t2(q) # not used so far
         readout = min(props.readout_error(q), 0.49)
         noise_data[q] = {'t1': t1, 't2': t2, 'readout': readout}        
     # Extract specific CZ gate errors

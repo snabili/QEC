@@ -76,6 +76,7 @@ The calibration datasets are categorized in three main classes:
 │   ├── heavyhex_lattice.py --> diagnozes surface code errors
 │   ├── ibm_api.py --> keep it hidden in .gitignore file
 │   ├── leakage.py --> Computes leakage error based on pure simulation
+│   ├── noise_heterogeneity.py --> compares individual heterogeneous noise w.r.t. avg noise
 │   ├── plotting.py
 │   ├── simulate_noise_model.py --> Plots errors from downloaded CSV file
 │   ├── stabilizer.py --> running stabilizer on surface code 
@@ -174,7 +175,7 @@ Because IBM’s open‑access accounts provide limited access to real hardware b
 
 The effect of crosstalk with $\xi = 100 kHz$ is shown below with Simultaneus being the Crosstalk included effect and the Isolated legend showing without the effect:
 
-<img src="xt_effect.png" width="550">
+<img src="xt_effect.png" width="500">
 
 ### Simulating Leakage error:
 Leakage occurs when a transmon qubit is excited to energy states beyond the computational subspace ($\ket{0}$ and $\ket{1}$). While the anharmonicity—provided by the nonlinear inductance of the Josephson Junction—is designed to isolate the first two levels, high-speed microwave (MW) pulses can still inadvertently drive transitions to higher energy levels, such as the $\ket{2}$ state.
@@ -201,4 +202,25 @@ The simulation generates a population plot (shown below) tracking the state evol
 
  <img src="leakage_population.png" width="550">
 
+### Noise Heterogenity
+Physical transmon qubits in a superconducting backend exhibit unique noise profiles that vary significantly across the chip. This section investigates how heterogeneous noise (the unique, real-world error rates of each qubit) affects a Surface Code compared to a simplified uniform average noise model.
+
+For this study, data from the IBM Heavy-Hex architecture (as seen on the ibm_fez backend) was used to simulate a surface code patch The setup and assumptions of the noise heterogeneity code are as follow:
+
+1 - Scalable Geometry: The code accepts a distance parameter ($d$) to define the size of the logical surface code patch
+
+2 - Syndrome Extraction: Stabilizer measurements are performed over multiple rounds using CZ-gates and ancilla measurements to detect phase and bit-flip errors.
+
+3 - Error Sources: The model incorporates specific Readout Errors and Two-Qubit Gate (CZ) errors pulled directly from the backend's daily calibration data
+
+4 - Strategic Patch Selection: The simulation identifies and selects a "Golden Patch"—the subset of physical qubits with the highest fidelity. Because the code avoids "bad apples" on the chip, the Actual Heterogeneous Error is typically lower than the Global Average Error.
+
+
+To run the noise heterogeneity simulation with a distance of $3$, execute:
+
+``` python test/noise_heterogeneity.py 3 ```
+
+The script generates a connectivity map of the backend where qubits are color-coded based on their current calibration health (readout and gate fidelity). This visualization helps identify the optimal regions for QEC placement.
+
+<img src="backendhealth_dist.png" width="600">
 
