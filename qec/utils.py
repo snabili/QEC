@@ -6,18 +6,22 @@ import sys, argparse
 
 # plotting packages
 import matplotlib.pyplot as plt
+import numpy as np
 import networkx as nx
+
+from scipy.integrate import quad # to compute integral; used in leakage; find_physical_amplitude() function
 
 # IBM Qiskit:
 from qiskit.circuit import QuantumCircuit
 from qiskit_aer import AerSimulator
+from qiskit_dynamics import Solver, Signal
 
 
 '''
 This code's purpose is to gather functions required to run other codes
 '''
 
-def setup_logging(name='thermo_logger', log_path=None, level=logging.INFO, console=True):
+def setup_logging(name='qec_logger', log_path=None, level=logging.INFO, console=True):
     """
     Create a reusable logger with both file and console outputs.
     Args:
@@ -109,27 +113,128 @@ def time_and_log(begin_msg, end_msg='Done'):
         nsecs %= 60
         logger.info(end_msg + f' (took {nmins:02d}m:{nsecs:.2f}s)')
 
-def find_d3_patches(graph):
+def get_valid_centers(G, dist):
+    """
+    Finds all qubits that can act as the center for a patch of a given distance.
+    In heavy-hex, logical centers should be 'Data' qubits, and they usually have degree 2 or 3.
+    By check if the graph can provide enough qubits within the radius
+    """
+    valid_centers = []
+    min_size = 2 * dist**2 - 1
+    search_radius = dist + (dist // 2) # Heuristic for heavy-hex stretching
+
+    for node in G.nodes():
+        nodes_nearby = nx.single_source_shortest_path_length(G, node, cutoff=search_radius)        
+        if len(nodes_nearby) >= min_size:
+            valid_centers.append(node)            
+    return valid_centers
+
+
+
+def get_clean_subgraph(backend, error_threshold=0.15):
+    """
+    Returns a NetworkX graph of the backend where 'dead' or 
+    high-error qubits/gates are removed.
+    """
+    props = backend.properties()
+    G = nx.Graph()
+    
+    # 1. Filter Qubits (Nodes)
+    valid_qubits = []
+    for i in range(backend.num_qubits):
+        try:
+            if props.readout_error(i) < error_threshold:
+                valid_qubits.append(i)
+        except:
+            continue
+            
+    # 2. Filter Gates (Edges)
+    for edge in backend.coupling_map:
+        u, v = edge
+        if u in valid_qubits and v in valid_qubits:
+            try:
+                # IBM Fez uses CZ; check the gate error
+                err = props.gate_error('cz', [u, v])
+                if err < error_threshold:
+                    G.add_edge(u, v, weight=err)
+            except:
+                continue
+    return G
+
+def find_d3_patches(graph, dist):
     '''
     In heavy-hex, logical patches are centered on 'Data' qubits
     Look for nodes with degree 3 as potential centers, with 17-qubit (9 data + 8 syndrome) diamond
     '''
     patches = []
-    centers = [n for n, d in graph.degree() if d == 3]
-    logger.info('Central qubits {centers}')    
+    centers = get_valid_centers(graph, dist)
+    logger.info(f'Central qubits {centers} with distance={dist}') 
+    min_size, search_radius = 2 * dist**2 - 1, 2 * (dist-1) + 2
     for c in centers:
-        nodes_at_dist = nx.single_source_shortest_path_length(graph, c, cutoff=4) # Need to go 4 steps out to encompass the 17-qubit diamond
-        subnodes = list(nodes_at_dist.keys())       
-        if len(subnodes) >= 17: # satisfy the minimum size.
-            # Sort by distance to ensure getting 17-qubits closest to the center 'c'
+        nodes_at_dist = nx.single_source_shortest_path_length(graph, c, cutoff=search_radius)
+        subnodes = list(nodes_at_dist.keys())
+        if len(subnodes) >= min_size:
             sorted_nodes = sorted(subnodes, key=lambda x: nodes_at_dist[x])
-            patch = sorted_nodes[:17]
+            patch = sorted_nodes[:min_size]
             patches.append(patch)        
     return patches
 
 
+def get_best_patch_center(backend, G, centers, dist):
+    """
+    Evaluates candidate centers and returns the one with the healthiest 
+    average calibration metrics (T1, T2, and Gate Error),
+    Scoring Criteria:
+        high T1 + T2 and LOW gate error. 
+        Score = (Avg T1 + Avg T2) / Avg Gate Error
+    """
+    best_center = None
+    best_score = -np.inf
+    patch_stats = []
 
-def get_true_roles(full_graph, patch_nodes):
+    min_size = 2 * dist**2 - 1
+    search_radius = dist + (dist // 2)
+
+    properties = backend.properties()
+
+    for c in centers:
+        nodes_at_dist = nx.single_source_shortest_path_length(G, c, cutoff=search_radius)
+        patch_nodes = sorted(nodes_at_dist.keys(), key=lambda x: nodes_at_dist[x])[:min_size]
+        
+        t1s = []
+        t2s = []
+        for q in patch_nodes:
+            t1s.append(properties.t1(q))
+            t2s.append(properties.t2(q))
+        
+        avg_t1 = np.mean(t1s)
+        avg_t2 = np.mean(t2s)
+
+        # Gate Metrics (CZ Error)
+        gate_errors = []
+        subgraph_edges = G.subgraph(patch_nodes).edges()
+        for u, v in subgraph_edges:
+            error = properties.gate_error('cz', [u, v])
+            gate_errors.append(error)
+        
+        avg_gate_error = np.mean(gate_errors) if gate_errors else 1.0
+
+        score = (avg_t1 + avg_t2) / avg_gate_error
+
+        patch_stats.append({
+            "center": c,
+            "score": score,
+            "avg_t1": avg_t1,
+            "avg_t2": avg_t2,
+            "avg_gate_error": avg_gate_error
+        })
+        if score > best_score:
+            best_score = score
+            best_center = c
+
+    return best_center, patch_stats
+
+def get_true_roles(full_graph, patch_nodes, dist):
     '''
     Heavy-hex layout for d=3: N(data-qubits)=d^2=9, N(ancilla-qubits)=d^2-1=8
     This function find data + ancilla qubits in a subgraph:
@@ -141,64 +246,101 @@ def get_true_roles(full_graph, patch_nodes):
         data, x_syndrome, z_syndrome
     '''
     sub = full_graph.subgraph(patch_nodes)    
-    coloring = nx.bipartite.color(sub) # heavy-hex lattice is Bipartite; color it into two sets.
+    try:
+        coloring = nx.bipartite.color(sub)
+    except nx.NetworkXError:
+        # If the patch isn't bipartite, it's not a valid QEC patch
+        return {"data": [], "x_syndrome": [], "z_syndrome": []}
     
     set_0 = [n for n, color in coloring.items() if color == 0]
     set_1 = [n for n, color in coloring.items() if color == 1]
     
-    if len(set_0) == 9:
+    target_data_count = dist**2
+    if len(set_0) == target_data_count:
         data_q, syndrome_q = set_0, set_1
-    else:
+    elif len(set_1) == target_data_count:
         data_q, syndrome_q = set_1, set_0
+    else:
+        # Fallback: The set with more nodes is usually the data set in these patches
+        data_q, syndrome_q = (set_0, set_1) if len(set_0) > len(set_1) else (set_1, set_0)
+    x_syn = []
+    z_syn = []
     
-    x_syn = [n for n in syndrome_q if full_graph.degree(n) == 3]
-    z_syn = [n for n in syndrome_q if full_graph.degree(n) == 2]
+    for n in syndrome_q:
+        # X-syndromes (Stars) connect to more data qubits than Z-syndromes (Bridges)
+        # In heavy-hex d=3, X-syndromes usually have degree 3 in the subgraph
+        if sub.degree(n) >= dist:
+            x_syn.append(n)
+        else:
+            z_syn.append(n)
     
     return {"data": sorted(data_q), "x_syndrome": sorted(x_syn), "z_syndrome": sorted(z_syn)}
 
 
-def find_logical_qubit_full(G, center_node):
+def find_logical_qubit_full(backend, G, dist):
     '''
-    Find logical qubit:
-        - Identify 17-qubits cluster (d=3) subgraph around central-node out of all qubits 
+    Find logical qubit with distance d
+        - Identify (2d^2-1)-qubits cluster subgraph around central-node out of all qubits 
         - Assign roles using Bipartite graph function
-        - Find logical strings (node=5, edges=4) candidates that satisfy: D-S-D-S-D (D:data, S:syndrome)
+        - Find logical strings (node=2x(d-1)+2, edges=node-1) candidates 
+                that satisfy for example d = 3: D-S-D-S-D (D:data, S:syndrome)
         - Find logical strings that intersect at exactly one node
     Return:
         - the nodes in the patch
         - data nodes
-        - logical-x (vertical 5 nodes path)
-        - logical-z (horizontal 5 nodes path)
+        - logical-x (vertical nodes path)
+        - logical-z (horizontal nodes path)
     '''
-    nodes_at_dist = nx.single_source_shortest_path_length(G, center_node, cutoff=4)
-    patch_nodes = sorted(nodes_at_dist.keys(), key=lambda x: nodes_at_dist[x])[:17]
+
+    min_size        = 2 * dist**2 - 1
+    search_radius   = 2 * (dist-1) + 2
+    string_len      = 2 * dist - 1
+    centers         = get_valid_centers(G, dist)
+
+    logger.info(f'centers: {centers}')
+
+    center_node = get_best_patch_center(backend, G, centers, dist)
+    logger.info(f'best patch center: {center_node[0]}')
+
+    nodes_at_dist = nx.single_source_shortest_path_length(G, center_node[0], cutoff = search_radius)
+    if len(nodes_at_dist) < min_size:
+        return None
+    patch_nodes = sorted(nodes_at_dist.keys(), key=lambda x: nodes_at_dist[x])[:min_size]
     sub = G.subgraph(patch_nodes)
 
-    coloring = nx.bipartite.color(sub)
+    # Assign Roles (Scaling Data Node count)
+    try:
+        coloring = nx.bipartite.color(sub)
+    except nx.NetworkXError:
+        return None # Not a valid bipartite QEC patch
+    
     set_0 = [n for n, color in coloring.items() if color == 0]
     set_1 = [n for n, color in coloring.items() if color == 1]
-    data_nodes = set_0 if len(set_0) == 9 else set_1
+    target_data_count = dist**2
+    data_nodes = set_0 if len(set_0) == target_data_count else set_1
     
     logical_strings = []
     for start in data_nodes:
         for end in data_nodes:
             if start >= end: continue
-            for path in nx.all_simple_paths(sub, start, end, cutoff=4):
-                if len(path) == 5 and all(path[i] in data_nodes for i in [0, 2, 4]):
-                    logical_strings.append(path)
+            for path in nx.all_simple_paths(sub, start, end, cutoff=string_len - 1):
+                if len(path) == string_len:
+                    # Every second node must be a data node (indices 0, 2, 4, 6...)
+                    if all(path[i] in data_nodes for i in range(0, string_len, 2)):
+                        logical_strings.append(path)
 
     for i, path_a in enumerate(logical_strings):
         for path_b in logical_strings[i+1:]:
-            data_a = {path_a[0], path_a[2], path_a[4]}
-            data_b = {path_b[0], path_b[2], path_b[4]}
+            data_a = set(path_a[i] for i in range(0, string_len, 2))
+            data_b = set(path_b[i] for i in range(0, string_len, 2))
             intersection = data_a.intersection(data_b)
             
             if len(intersection) == 1:
                 return {
                     "patch": patch_nodes,
                     "data": sorted(list(data_nodes)),
-                    "logical_x": [path_a[0], path_a[2], path_a[4]],
-                    "logical_z": [path_b[0], path_b[2], path_b[4]],
+                    "logical_x": sorted(list(data_a)),
+                    "logical_z": sorted(list(data_b)),
                     "pivot": list(intersection)[0]
                 }
     return None
@@ -308,7 +450,43 @@ def run_stabilizer(qc):
     return counts
 
 
+def plot_backend_health(G, global_noise_map, filename_path):
+    plt.figure(figsize=(12, 8))
+    pos = nx.spring_layout(G, seed=42)
+    
+    # This will now find every node because global_noise_map has all IDs
+    readout_errors = [global_noise_map[node]['readout'] for node in G.nodes()]
+    
+    nodes = nx.draw_networkx_nodes(G, pos, 
+                                   node_color=readout_errors,
+                                   cmap=plt.cm.YlOrRd, 
+                                   node_size=300)
+    nx.draw_networkx_edges(G, pos, alpha=0.3)
+    nx.draw_networkx_labels(G, pos, font_size=8)
+    plt.colorbar(nodes, label='Readout Error Rate')
+    
+    plt.savefig(filename_path)
 
+
+def find_best_subgraph(cz_errors, n_qubits=10):
+    """
+    ranks qubits by their 'Neighborhood Error' (average of all connected CZ links).
+    useful function to do the crosstalk error approximation
+    as the open-instance ibm account does not provide the frequency map
+    """
+    qubit_scores = {}
+    # Get unique qubits from the links
+    all_qubits = set([q for link in cz_errors.keys() for q in link])
+    
+    for q in all_qubits:
+        # Find all CZ links connected to this qubit
+        connected_errors = [err for link, err in cz_errors.items() if q in link]
+        if connected_errors:
+            qubit_scores[q] = np.mean(connected_errors)
+    
+    # Sort qubits: Lowest average error first
+    sorted_qubits = sorted(qubit_scores.items(), key=lambda x: x[1], reverse=False)
+    return sorted_qubits[:n_qubits]
 
 # =========================== Extra/Test functions to test the workflow ===========================
 def visualize_patch(graph, center_node):
@@ -361,4 +539,62 @@ def build_test_stabilizer(result, roles, G):
         bit_idx += 1
         qc.barrier()
     return qc
+
+
+def find_spectator(pair, backend):
+    '''
+    to find the neighboor to the target_pair
+    useful in comuting crosstalk error
+    '''
+    q1, q2 = pair
+    for a, b in backend.configuration().coupling_map:
+        if a == q1 and b != q2: return b
+        if b == q1 and a != q2: return a
+        if a == q2 and b != q1: return b
+        if b == q2 and a != q1: return a
+    return None
+
+
+# ---------------------------------------------------------
+# -------- Leakage Functions ------------------------------
+# ---------------------------------------------------------
+
+def find_physical_amplitude(target_theta, sigma, duration):
+    '''
+    To find MW pulse amplitude
+    Used in leakage error estimation
+    Computes amplitude of MW pulse intended 
+        for a specific flip via target_theta
+    MW pulse shape used is a gaussian --> could be extended for other MW shapes
+    '''    
+    unit_area, _ = quad(lambda t: np.exp(-(t - duration/2)**2 / (2 * sigma**2))
+                        , 0, duration)  # Calculate the unitless area of the Gaussian curve 
+    # Target rotation theta = Integral of (2 * pi * A * gauss)
+    # A = theta / (2 * pi * unit_area)
+    amp = target_theta / (2 * np.pi * unit_area)
+    return amp
+
+
+def sweep_envelope(amp, d, beta):
+    sigma = d / 6
+    def envelope(t):
+        gauss = amp * np.exp(-(t - d/2)**2 / (2 * sigma**2))
+        '''
+        Derivative of the Gaussian (The "Q" component)
+            d/dt exp(-t^2) = -2t * exp(-t^2)
+        '''
+        deriv = -(t - d/2) / (sigma**2) * gauss
+        return gauss + 1j * beta * deriv
+    return envelope
+
+def find_best_beta(beta_values, amp, duration, v01, solver):    
+    beta_leakages = []
+    for beta in beta_values:
+        env = sweep_envelope(amp, duration, beta)
+        signal = Signal(envelope=env, carrier_freq=v01)
+        sol = solver.solve(t_span=[0, duration], y0=np.array([1,0,0], dtype=complex), signals=[signal])    
+        leakage = np.max(np.abs(sol.y[:, 2])**2)
+        beta_leakages.append(leakage)
+    return beta_leakages
+
 
