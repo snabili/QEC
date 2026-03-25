@@ -80,7 +80,11 @@ duration = props.gate_length('sx',12) # dummy qubit_id = 12
 duration = 24. # ns; Sx gate opertoring time (t_sx); props.gate_length('sx',72)  
 sigma = duration/6 # ns; skinnier gaussian operator
 t_eval = np.linspace(0, duration, 200)
-amp_pi = utils.find_physical_amplitude(np.pi, sigma, duration) # For X-gate (theta = pi)
+rotation = np.pi
+amp_pi = utils.find_physical_amplitude(rotation, sigma, duration) # For X-gate (theta = pi)
+
+logger.info(f'Required Amplitude for {rotation} rotation = {amp_pi:.2f}, for duration = {duration} ns')
+
 beta_values = np.linspace(-5, 2, 100)  # Testing a range of Beta
 beta_leakages = utils.find_best_beta(beta_values, amp_pi, duration, v01, solver)
 best_beta = beta_values[np.argmin(beta_leakages)]
