@@ -174,10 +174,10 @@ Because IBM’s open‑access accounts provide limited access to real hardware b
 
 The effect of crosstalk with $\xi = 100 kHz$ is shown below with Simultaneus being the Crosstalk included effect and the Isolated legend showing without the effect:
 
-![My Figure](xt_effect.png)
+<img src="xt_effect.png" width="550">
 
 ### Simulating Leakage error:
-Leakage occurs when a transmon qubit is excited to energy states beyond the computational subspace ($ket{0}$ and $\ket{1}$). While the anharmonicity—provided by the nonlinear inductance of the Josephson Junction—is designed to isolate the first two levels, high-speed microwave (MW) pulses can still inadvertently drive transitions to higher energy levels, such as the $\ket{2}$ state.
+Leakage occurs when a transmon qubit is excited to energy states beyond the computational subspace ($\ket{0}$ and $\ket{1}$). While the anharmonicity—provided by the nonlinear inductance of the Josephson Junction—is designed to isolate the first two levels, high-speed microwave (MW) pulses can still inadvertently drive transitions to higher energy levels, such as the $\ket{2}$ state.
 
 To analyze these effects, this simulation utilizes the following framework:
 
@@ -199,6 +199,6 @@ To run the leakage estimation script, execute the following:
 
 The simulation generates a population plot (shown below) tracking the state evolution. The "Optimized" result minimizes the population in state $\ket{2}$ at the end of the gate duration.
 
- ![My Figure](leakage_population.png)
+ <img src="leakage_population.png" width="550">
 
 
