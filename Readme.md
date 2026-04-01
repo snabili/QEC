@@ -91,12 +91,36 @@ The gold standard of error correction code for QEC in industry (Google, IBM), be
 (X) and phase-flip (Z) errors. The elements of the surface code are: 
 
 ### Logical Qubits
-Software-designed qubits grouped from many physical qubits to act as a single, reliable unit to detect and collect errors. To compute logical error for various number of qubits:
+Software-designed qubits grouped from many physical qubits to act as a single, reliable unit to detect and collect errors.
+
+To compute the logical error for various numbers of qubits, the following simulation strategy was used:
+
+- Worst-Case Extraction: Identify the highest physical error rates (gate and readout) from the specific IBM backend topology to set a realistic "noise floor"
+
+- Distance Scaling: Simulated the rotated surface code across distances $d=3$, $d=5$, and $d=7$ using Stim and the PyMatching decoder
+
+- Threshold Mapping: Perform a log-log linear interpolation to find the exact coordinates ($x, y$) where the distance curves intersect, to determine if the current hardware calibration is within the "correcting" or "failing" regime.
+
+To run the simulation:
 ```
 python test/comp_threshold.py
 ```
 The plot produced by this code:
 ![My Figure](p_threshold.png)
+
+Finally to extract the desired logical error, $p_L$, using the following formula:
+
+$$p_L = C \times (\frac{p_{phys}}{p_{thresh}})^(\frac{d+1}{2})$$
+
+Where $C$ and $p_{thresh}$ are the vertical and horizontal coordinates of the three plots intersection in the figure above, the resulted distance values neccessary for a range of desired logical errors are:
+
+```
+logical error: 1.00e-09,  distance value = 56.86 --> d = 57
+logical error: 1.11e-06,  distance value = 34.83 --> d = 35
+logical error: 2.22e-06,  distance value = 32.65 --> d = 33
+logical error: 4.44e-06,  distance value = 30.48 --> d = 31
+logical error: 1.00e-05,  distance value = 27.93 --> d = 29
+```
 
 ### Stabilizers:
 Operators that represent the health condition of the system.
