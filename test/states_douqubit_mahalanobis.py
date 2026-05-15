@@ -92,7 +92,8 @@ def pars_qubit(nqu, ini_state):
         params0, params1 = train_mcd_discriminator(X0_train, X1_train)
         y_pred = predict_mcd(X1_test, params0, params1)
 
-        error_q.append(len(y_pred[y_pred==1])/len(y_pred))
+        #error_q.append(len(y_pred[y_pred==1])/len(y_pred))
+        error_q.append(np.mean(y_pred).item())
         tar_state.append(i)
         test_data_com[i] = X1_test
         params1_dict[i] = params1
