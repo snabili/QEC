@@ -115,11 +115,11 @@ $$p_L = C \times (\frac{p_{phys}}{p_{thresh}})^(\frac{d+1}{2})$$
 Where $C$ and $p_{thresh}$ are the vertical and horizontal coordinates of the three plots intersection in the figure above, the resulted distance values neccessary for a range of desired logical errors are:
 
 ```
-logical error: 1.00e-09,  distance value = 56.86 --> d = 57
-logical error: 1.11e-06,  distance value = 34.83 --> d = 35
-logical error: 2.22e-06,  distance value = 32.65 --> d = 33
-logical error: 4.44e-06,  distance value = 30.48 --> d = 31
-logical error: 1.00e-05,  distance value = 27.93 --> d = 29
+logical error: 1.00e-09,  distance value = 56.86 --> d = 57 --> total number of qubits = 6497
+logical error: 1.11e-06,  distance value = 34.83 --> d = 35 --> total number of qubits = 2449
+logical error: 2.22e-06,  distance value = 32.65 --> d = 33 --> total number of qubits = 2177
+logical error: 4.44e-06,  distance value = 30.48 --> d = 31 --> total number of qubits = 1921
+logical error: 1.00e-05,  distance value = 27.93 --> d = 29 --> total number of qubits = 1681
 ```
 
 ### Stabilizers:
@@ -150,7 +150,7 @@ Their roles is to identify the $\textbf{Phase-Flip}$ errors, the kind of errors 
 - Apply Hadamart gate to ancillas to change basis to Z-basis
 - Measure ancillas
 
-<img src="x_stabilizer.png" width="400">
+<img src="x_stabilizer.png" width="200">
 
 
 ### Z_Stabilizers:
@@ -206,17 +206,12 @@ Leakage occurs when a transmon qubit is excited to energy states beyond the comp
 
 To analyze these effects, this simulation utilizes the following framework:
 
-1 - Gate Context: Analysis is focused on leakage induced during single-qubit gate operations.
-
-2 - Three-Level System: The transmon is modeled as a qutrit with states $\ket{0}$, $\ket{1}$, and $\ket{2}$.
-
-3 - Target Operation: The study simulates a standard X-gate (bit-flip), requiring a precise $\pi$-pulse calibration.
-
-4 - DRAG Compensation: Used Derivative Removal by Adiabatic Gate (DRAG) technique. This uses a parameter $\beta$ to scale the derivative of the Gaussian envelope, effectively canceling out-of-subspace (phase) transitions.
-
-5 - Parameter Optimization: Both the MW-pulse duration ($T$) and the DRAG coefficient ($\beta$) are swept to identify the "Leakage Floor" of the system.
-
-6 - Pulse Shaping: The drive utilizes a Gaussian envelope, where the complex component (phase shift) is determined by the $\beta$-scaled derivative.
+1. Gate Context: Analysis is focused on leakage induced during single-qubit gate operations.
+2. Three-Level System: The transmon is modeled as a qutrit with states $\ket{0}$, $\ket{1}$, and $\ket{2}$.
+3. Target Operation: The study simulates a standard X-gate (bit-flip), requiring a precise $\pi$-pulse calibration.
+4. DRAG Compensation: Used Derivative Removal by Adiabatic Gate (DRAG) technique. This uses a parameter $\beta$ to scale the derivative of the Gaussian envelope, effectively canceling out-of-subspace (phase) transitions.
+5. Parameter Optimization: Both the MW-pulse duration ($T$) and the DRAG coefficient ($\beta$) are swept to identify the "Leakage Floor" of the system.
+6. Pulse Shaping: The drive utilizes a Gaussian envelope, where the complex component (phase shift) is determined by the $\beta$-scaled derivative.
 
 To run the leakage estimation script, execute the following:
 
@@ -231,14 +226,10 @@ Physical transmon qubits in a superconducting backend exhibit unique noise profi
 
 For this study, data from the IBM Heavy-Hex architecture (as seen on the ibm_fez backend) was used to simulate a surface code patch The setup and assumptions of the noise heterogeneity code are as follow:
 
-1 - Scalable Geometry: The code accepts a distance parameter ($d$) to define the size of the logical surface code patch
-
-2 - Syndrome Extraction: Stabilizer measurements are performed over multiple rounds using CZ-gates and ancilla measurements to detect phase and bit-flip errors.
-
-3 - Error Sources: The model incorporates specific Readout Errors and Two-Qubit Gate (CZ) errors pulled directly from the backend's daily calibration data
-
-4 - Strategic Patch Selection: The simulation identifies and selects a "Golden Patch"—the subset of physical qubits with the highest fidelity. Because the code avoids "bad apples" on the chip, the Actual Heterogeneous Error is typically lower than the Global Average Error.
-
+1. Scalable Geometry: The code accepts a distance parameter ($d$) to define the size of the logical surface code patch
+2. Syndrome Extraction: Stabilizer measurements are performed over multiple rounds using CZ-gates and ancilla measurements to detect phase and bit-flip errors.
+3. Error Sources: The model incorporates specific Readout Errors and Two-Qubit Gate (CZ) errors pulled directly from the backend's daily calibration data
+4. Strategic Patch Selection: The simulation identifies and selects a "Golden Patch"—the subset of physical qubits with the highest fidelity. Because the code avoids "bad apples" on the chip, the Actual Heterogeneous Error is typically lower than the Global Average Error.
 
 To run the noise heterogeneity simulation with a distance of $3$, execute:
 
@@ -248,3 +239,35 @@ The script generates a connectivity map of the backend where qubits are color-co
 
 <img src="backendhealth_dist.png" width="600">
 
+Highest error is the readout error and therefore the study of readout error and the possibility of reducing it is the main goal hereby.
+
+## Readout Error and its mitigation
+Readout error is the result of errors affecting the state of TLS qubits, such that $\ket{0}$ and $\ket{1}$ are mismeasured. The source of this error could be:
+
+1. Short decay time or low $T_1$;
+2. Hardware noises;
+3. Thermal noise;
+4. Dispersive shift between resonator and qubit;
+5. Numerical Controller Oscillator (NCO) frequency mismatches with Intermidiate Frequency (IF);
+6. Crosstalk between adjacent qubits;
+7. Leakage of neighboring qubits;
+
+For more details on how readout system works in superconducting quantum computers: [QEC slides](QEC_IBM.pdf)
+
+To understand the effect of noises on the readout error and mitigate them, the raw readout voltages are extracted via the `StateTomography` class of the `qiskit_experiments` library. For more details in the coding and definition of data extraction, see [IQ Notebook](IQ_helper.ipynb).
+
+
+To run the code to extract two neighboring qubits (for qubit=`127` and neighboring qubit with highest readout error) and extract the four states ($\ket{00}, \ket{01}, \ket{10}, \ket{11}$), run this:
+
+`python test/iq_data.py 127`
+
+To plot and visualize the double-qubit IQ data for double-qubit run:
+
+`python test/iq_plot.py 127`
+ 
+ <img src="iq_plot.png" width="600">
+
+### Readout error mitigation tools
+To enhance the IQ separation among double-qubits various states, the mahalanobis parameter is used primarily to remove the outliers from the IQ data points. This plot shows how using Mahalanobis distance and its modified version (MCD) that removes outliers in diagonal IQ space, improves the readout error by separating IQ data points. The plot shows the amount of improvment is more visible for qubit 127.
+
+<img src="maha_qu1-10_qu2-01.png" width="600">
