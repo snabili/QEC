@@ -4,7 +4,8 @@ from matplotlib.patches import Ellipse
 
 from sklearn.mixture import GaussianMixture
 from sklearn.model_selection import train_test_split
-from sklearn.covariance import MinCovDet
+from sklearn.covariance import MinCovDet, EmpiricalCovariance
+
 import os, sys, argparse
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 # importing custom codes
@@ -12,6 +13,7 @@ from qec import utils, config
 
 logpath = config.LOG_DIR
 datapath = config.DATA_DIR
+plotpath = config.PLOT_DIR
 
 logger = utils.setup_logging(log_path=logpath + "/state_2qu_maha.txt")
 
@@ -25,7 +27,7 @@ args = parser.parse_args()
 
 logger.info(f'argument state: {args.nst}, qubits: {args.nqu}')
 
-data = np.load(os.getcwd()+'/files/datafiles/x.npz')
+data = np.load(datapath + '/x.npz')
 
 X00 = data['X00']
 X01 = data['X01']
@@ -92,7 +94,6 @@ def pars_qubit(nqu, ini_state):
         params0, params1 = train_mcd_discriminator(X0_train, X1_train)
         y_pred = predict_mcd(X1_test, params0, params1)
 
-        #error_q.append(len(y_pred[y_pred==1])/len(y_pred))
         error_q.append(np.mean(y_pred).item())
         tar_state.append(i)
         test_data_com[i] = X1_test
@@ -163,5 +164,40 @@ plt.tight_layout()
 
 qname = {1: '127', 2: '128'}
 
-dir = os.getcwd() + '/files/plots/'
-plt.savefig(dir + 'mahala_'+states[ini_state]+'_qubit'+qname[nqu]+'.pdf')
+plt.savefig(plotpath+ '/mahala_'+states[ini_state]+'_qubit'+qname[nqu]+'.pdf')
+
+def draw_ellipse(mcd, ax, color, label, linestyle='-'):
+    """Draws a 3-sigma Mahalanobis contour."""
+    cov = mcd.covariance_
+    center = mcd.location_
+        
+    vals, vecs = np.linalg.eigh(cov)
+    order = vals.argsort()[::-1]
+    vals, vecs = vals[order], vecs[:, order]
+        
+    theta = np.degrees(np.arctan2(*vecs[:, 0][::-1]))        
+    width, height = 2 * 3 * np.sqrt(vals)
+        
+    ell = Ellipse(xy=center, width=width, height=height, angle=theta,
+                      edgecolor=color, facecolor='none', lw=2, 
+                      linestyle=linestyle, label=label)
+    ax.add_patch(ell)
+
+fig, ax = plt.subplots(1, 2, figsize=(12, 5))
+for i,nqu in enumerate([127, 128]):
+    if nqu == 127:
+        ax[i].scatter(X10[:,0], X10[:,1], color='navy', alpha=0.2, s=15, label=f'IQ State: |10>')
+        standard_cov = EmpiricalCovariance().fit(X10[:,:2])
+        robust_cov = MinCovDet().fit(X10[:,:2]) 
+    else:
+        ax[i].scatter(X01[:,2], X01[:,3], color='navy', alpha=0.2, s=15, label=f'IQ State: |01>')
+        standard_cov = EmpiricalCovariance().fit(X01[:,2:])
+        robust_cov = MinCovDet().fit(X01[:,2:])
+    draw_ellipse(standard_cov, ax[i], 'black', 'Standard Mahalanobis (Skewed)', '--')
+    draw_ellipse(robust_cov, ax[i], 'green', 'Robust MCD Mahalanobis (Correct)')
+    ax[i].set_xlabel(fr"$I_{{{nqu}}}$ (Volts)", fontsize=16)
+    ax[i].set_ylabel(fr"$Q_{{{nqu}}}$ (Volts)", fontsize=16)
+    ax[i].legend()
+    ax[i].grid(True, alpha=0.3)
+
+plt.savefig(plotpath + '/maha_qu1-10_qu2-01.png')
