@@ -35,6 +35,7 @@ pip install qiskit_experiments
 pip install pylatexenc # to visualize circuits
 pip install pandas
 pip install seaborn
+pip install xgboost
 ```
 
 The above packages are added to qec_env.yml, to skip the above commands and to buid the environment in one run:
@@ -71,19 +72,25 @@ The calibration datasets are categorized in three main classes:
 │   └── utils.py
 ├── qec_env.yml
 ├── Readme.md
-├── test
+├── test --> running codes
 │   ├── comp_threshold.py --> to plot $P_L$ vs $P_{phys}$ to extract threshold
 │   ├── heavyhex_lattice.py --> diagnozes surface code errors
+│   ├── IQ_helper.ipynb --> helper to study readout errors mitigation techniques on the fly
 │   ├── ibm_api.py --> keep it hidden in .gitignore file
-│   ├── leakage.py --> Computes leakage error based on pure simulation
+│   ├── ibu_readout.py --> applies Bayes probability and makes readout mitigation matrix plot
+│   ├── iq_data.py --> extract IQ level=1 data from IBM backends
+│   ├── iq_plot.py --> makes IQ states plots + ML boundaries 
+│   ├── leakage.py --> computes leakage error based on pure simulation
+│   ├── ml_gridsearch.py --> ML optimization
+│   ├── ml_readout.py  --> train, reports fidelity of ML algos
 │   ├── noise_heterogeneity.py --> compares individual heterogeneous noise w.r.t. avg noise
 │   ├── plotting.py
-│   ├── simulate_noise_model.py --> Plots errors from downloaded CSV file
+│   ├── simulate_noise_model.py --> plots errors from downloaded CSV file
 │   ├── stabilizer.py --> running stabilizer on surface code 
 │   ├── xt_leakage.py --> crosstalk effect on EPC using fully simulated backend
 │   └── xtalk_error.py --> crosstalk effect on EPC using online IBM backend; open-instance account have limited time usage
 ├── files
-├── plots
+└── plots
 ```
 
 ## Surface Code
@@ -254,7 +261,7 @@ Readout error is the result of errors affecting the state of TLS qubits, such th
 
 For more details on how readout system works in superconducting quantum computers: [QEC slides](QEC_IBM.pdf)
 
-To understand the effect of noises on the readout error and mitigate them, the raw readout voltages are extracted via the `StateTomography` class of the `qiskit_experiments` library. For more details in the coding and definition of data extraction, see [IQ Notebook](IQ_helper.ipynb).
+To understand the effect of noises on the readout error, the raw readout voltages are extracted via the `StateTomography` class of the `qiskit_experiments` library. For more details on readout error mitigation methods used in this study see [IQ Notebook](IQ_helper.ipynb).
 
 
 To run the code to extract two neighboring qubits (for qubit=`127` and neighboring qubit with highest readout error) and extract the four states ($\ket{00}, \ket{01}, \ket{10}, \ket{11}$), run this:
@@ -263,11 +270,68 @@ To run the code to extract two neighboring qubits (for qubit=`127` and neighbori
 
 To plot and visualize the double-qubit IQ data for double-qubit run:
 
-`python test/iq_plot.py 127`
+`python test/iq_plot.py`
  
  <img src="iq_plot.png" width="600">
 
 ### Readout error mitigation tools
-To enhance the IQ separation among double-qubits various states, the mahalanobis parameter is used primarily to remove the outliers from the IQ data points. This plot shows how using Mahalanobis distance and its modified version (MCD) that removes outliers in diagonal IQ space, improves the readout error by separating IQ data points. The plot shows the amount of improvment is more visible for qubit 127.
+To enhance the IQ separation among double-qubits various states, the mahalanobis parameter is used primarily to remove the outliers from the IQ data points. This plot shows how using Mahalanobis distance and its modified version (MCD) that removes outliers in diagonal IQ space, improves the readout error by separating IQ data points. The plot shows the amount of improvment is more visible for qubit 127. At the time of this study, the readout fidelity for qubits 128, 127 wehre 95% and 92% respectively.
 
-<img src="maha_qu1-10_qu2-01.png" width="600">
+<img src="maha_qu1-10_qu2-01.png" width="800">
+
+### ML on IQ Map
+Used these classification ML algorithms to assess the readout error ML is able to achieve: SVC, Logistic Regression, BDT, GMM and Mahalanobis distance. 
+### Data Prep:
+Used double neighboring qubits I&Q data prepared in four states ($\ket{00}, \ket{01}, \ket{10}, \ket{11}$). Split train-test data by 80-20%, and used `scikit-learn` package. The resulted fidelity for individual states and the mean of states:
+
+```
+State      | LR  Fidelity      | SVC Fidelity  | GMM Fidelity  |  MAH Fidelity    | BDT Fidelity   
+----------------------------------------------------------------------------------------------------
+|00>       |      0.962        |       0.965   |     0.967     |     0.964     |     0.964
+|01>       |      0.958        |       0.961   |     0.958     |     0.962     |     0.959
+|10>       |      0.956        |       0.954   |     0.954     |     0.954     |     0.954
+|11>       |      0.944        |       0.940   |     0.940     |     0.940     |     0.942
+mean:      |      0.955        |       0.955   |     0.955     |     0.955     |     0.955
+```
+
+To run ML algos report as above, and make the plot of I&Q map with the ML boundaries, e.g. svc: 
+
+`python test/ml_readout.py svc`
+
+This command produces this plot:
+
+<img src="iqmap_ml-svc_boundaries.png" width="600">
+
+## Path Forward
+As it is shown the performance is not that different, the difference is within less than 0.5%. The reason is because the boundary between different states are kind of linear and the ML non-linear algorithms are not capable of distinguishing different states from the integrated I and Q values. 
+
+To perform a better error mitigation study, there are two options:
+
+1. To use the non integrated voltages and extract the raw time-dependent I and Q data, known as level-zero data, and apply noise mitigation algorithms. In addition to noise reduction (due to the resonator filling and depleting), one could detect the shots where the excited states decay back to the ground states.
+2. Use Iterative-Bayesian-Unforlding (IBU) techniques to mitigate readout errors. 
+
+In the absence of level-zero data, this study persue the error mitigation with IBU method.
+
+### IBU Method
+The Bayes method is based on reducing readout method by targetting the mis-identified states and reduce the readout error by changing the number of mis-identified counts. To begin with we take one of the ML algorithms and perform a grid search method to optimize the ML parameters and after training the data used the normalized confusion matrix (CM) from `scikit-learn`. 
+
+The `scikit-learn` CM convention: columns represent the prediction/measured probabilities; rows are the prepared/true probabilities:
+
+$$
+CM_{\text{scikit-learn}} = \begin{bmatrix}
+T00M00 & T00M01 & T00M10 & T00M11 \\
+T01M00 & T01M01 & T01M10 & T01M11 \\
+T10M00 & T10M01 & T10M10 & T10M11 \\
+T11M00 & T11M01 & T11M10 & T11M11
+\end{bmatrix}
+$$
+
+With IBU the strategy is: given the measurement $M_i$ what is the probability that the shot was originated as $T_j$: P($T_j|M_i$)
+
+To compute the IBU reduction of the mis-identified shots for a ML algo, e.g. `svc`:
+
+`python test/ibu_readout.py svc`
+
+The code produces the following confusion matrix plots:
+
+<img src="readout_cm.png" width="800">
