@@ -302,6 +302,10 @@ This command produces this plot:
 
 <img src="iqmap_ml-svc_boundaries.png" width="600">
 
+To hypertune the non-linear ML algos above, e.g., bdt, run the following command:
+
+`python test/ml_gridsearch.py bdt`
+
 ## Path Forward
 As it is shown the performance is not that different, the difference is within less than 0.5%. The reason is because the boundary between different states are kind of linear and the ML non-linear algorithms are not capable of distinguishing different states from the integrated I and Q values. 
 
