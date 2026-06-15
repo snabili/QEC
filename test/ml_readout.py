@@ -117,7 +117,7 @@ logger.info("\n SVM CM:\n", cm_svc)
 logger.info("\n GMM CM:\n", cm_gmm)
 logger.info("\n Mah CM:\n", np.array([mah_confmatrix[i] for i in mah_confmatrix.keys()]))
 logger.info("\n BDT CM:\n", cm_bdt)
-logger.info("\n", "*"*150, "\n")
+logger.info("\n", "*"*150)
 
 def fidelity(cm):
     P_i_given_i = []
@@ -148,10 +148,9 @@ for i in range(4):
           )
 logger.info(f'\n mean:\n   LR={np.mean(F_lr):.3f},\n   SVC={np.mean(F_svc):.3f},\n   GMM={np.mean(F_gmm):.3f},\n   MAH={np.mean(F_mah):.3f},\n   BDT={np.mean(F_bdt):.3}')
 
-'''
-Now plotting I&Q with decision boundaries
-
-'''
+# ================================================================
+# ================ Plotting I&Q with decision boundaries
+# ================================================================
 parser = argparse.ArgumentParser(description="QEC IBM_FEZ")
 # Add arguments
 parser.add_argument("mlalgo", type=str,  help="ml: svc, bdt, gmm, lr, mah",   default='bdt')
@@ -174,11 +173,11 @@ def plot_iq_decision_boundaries(X_test, y_test, model, qubit_index=1):
     if qubit_index == 1:
         idx_i, idx_q = 0, 1
         other_i, other_q = 2, 3
-        title = "Qubit 1 Decision Boundaries (holding Q2 at mean)"
+        title = f"{args.mlalgo.upper()} Q1 DecBound (Q2 at mean)"
     else:
         idx_i, idx_q = 2, 3
         other_i, other_q = 0, 1
-        title = "Qubit 2 Decision Boundaries (holding Q1 at mean)"
+        title = f"{args.mlalgo.upper()} Q2 DecBound (Q1 at mean)"
 
     state_labels = ["|00>", "|01>", "|10>", "|11>"]
 
@@ -188,14 +187,16 @@ def plot_iq_decision_boundaries(X_test, y_test, model, qubit_index=1):
     ii, qq = np.meshgrid(np.linspace(i_min, i_max, 100),
                          np.linspace(q_min, q_max, 100))
 
-    # To predict on the grid, we need 4D input. 
-    # We hold the "other" qubit at its average value.
-    other_i_val = np.mean(X_test[:, other_i])
-    other_q_val = np.mean(X_test[:, other_q])
+    # Hold the "other" qubit at its average value.
+    '''other_i_val = np.mean(X_test[:, other_i])
+    other_q_val = np.mean(X_test[:, other_q])  ''' 
+    qubit1_state0_mask = (y_test == 0) | (y_test == 1) # States |00> and |01>
+    other_i_val = np.mean(X_test[qubit1_state0_mask, other_i])
+    other_q_val = np.mean(X_test[qubit1_state0_mask, other_q])
+
+    grid_points = np.c_[ii.ravel(), qq.ravel()] # Construct 4D grid based on which qubit is being visualized
     
-    grid_points = np.c_[ii.ravel(), qq.ravel()] # --> what is this doing??
-    # Construct 4D grid based on which qubit is being visualized
-    if qubit_index == 1:
+    if qubit_index == 1: 
         full_grid = np.c_[grid_points, 
                           np.full(len(grid_points), other_i_val), 
                           np.full(len(grid_points), other_q_val)]
@@ -208,28 +209,23 @@ def plot_iq_decision_boundaries(X_test, y_test, model, qubit_index=1):
     Z = model.predict(full_grid)
     Z = Z.reshape(ii.shape)
 
-    # Plotting
     plt.figure(figsize=(8, 6))
-
-    # Draw decision regions
-    plt.contourf(ii, qq, Z, alpha=0.2, cmap='viridis')
-    
-    # Scatter plot of actual test points
+    contour = plt.contourf(ii, qq, Z, alpha=0.3, cmap='magma')
     scatter = plt.scatter(X_test[:, idx_i], X_test[:, idx_q], c=y_test, 
-                          edgecolors='k', s=20, cmap='viridis')
+                          edgecolors='k', s=20, cmap='magma')
     
     #CREATE LEGEND:
     # legend_elements returns handles and labels for each unique value in c=y_test
     handles, _ = scatter.legend_elements()
-    plt.legend(handles, state_labels, title="Quantum States", loc="upper right")
+    plt.legend(handles, state_labels, title="Quantum States", loc="upper right", ncols=2)
     
     plt.xlabel(f'I{qubit_index} (V)')
     plt.ylabel(f'Q{qubit_index} (V)')
     plt.title(title)
     plt.colorbar(scatter, ticks=[0, 1, 2, 3], label='States: |00>, |01>, |10>, |11>')
     plt.grid(True, alpha=0.3)
-    plt.ylim(min(X_test[:,1])*1.2, max(X_test[:,1])*2.0,)
-    plt.savefig(plotpath + '/iqmap_ml-' + args.mlalgo + '_boundaries.png')
+    plt.ylim(min(X_test[:,idx_q])*1., max(X_test[:,idx_q])*1.65,)
+    plt.savefig(plotpath + '/iqmap_ml-' + args.mlalgo + '_boundaries_mod.pdf')
 
 # Usage:
-plot_iq_decision_boundaries(X_test, y_test, mdl, qubit_index=1)
+plot_iq_decision_boundaries(X_test, y_test, mdl, qubit_index=2)

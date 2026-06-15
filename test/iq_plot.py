@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.stats import norm
 
 import sys, argparse
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -10,6 +11,8 @@ from qec import utils, config
 plotpath = config.PLOT_DIR
 datapath = config.DATA_DIR
 logpath = config.LOG_DIR
+logger = utils.setup_logging(log_path=logpath + "/IQ_plots.txt")
+
 
 
 data = np.load(datapath + '/x.npz')
@@ -64,4 +67,46 @@ for row, col, i, i_col, q_col, X_prim, lbl_prim, X_sec, lbl_sec, a_sec in grid_c
     ax.grid(True, linestyle=':', alpha=0.6)
 
 plt.tight_layout()
-plt.savefig(plotpath + '/iq_plot.png')
+plt.savefig(plotpath + '/iq_plot.pdf')
+
+
+# To make 1D I&Q distribution along with gaussian fit
+parser = argparse.ArgumentParser(description="QEC IBM_FEZ")
+# Add arguments
+parser.add_argument("dist", type=str,  help="1D Distribution",   default='I')
+parser.add_argument("qu",   type=int,  help="Qubit-ID",   default=128)
+
+args = parser.parse_args()
+logger.info(f'Distribution: {args.dist}, Qubit-ID: {args.qu}')
+
+grid_config = [
+    (0, 0, args.qu, X00, '|00>'),
+    (0, 1, args.qu, X01, '|01>'),
+    (1, 0, args.qu, X10, '|10>'),
+    (1, 1, args.qu, X11, '|11>')
+]
+iq_dist = {'I': [0,2], 'Q': [1,3]}
+iq_index = {127: iq_dist[args.dist][0],
+            128: iq_dist[args.dist][1]}
+
+fig, axes = plt.subplots(2, 2, figsize=(11, 9))
+for row, col, i, X, lbl in grid_config:
+    ax = axes[row, col]
+    ind = iq_index[args.qu]
+    IQ = X[:,ind]
+    mu, std = norm.fit(IQ)
+    x = np.linspace(min(IQ), max(IQ), 60)
+    stats_text = f"State: {lbl}\n$\mu$: {mu:.2e}\n$\sigma$: {std:.2e}"
+    ax.text(
+        0.05, 0.95, stats_text, transform=ax.transAxes, verticalalignment='top', horizontalalignment='left', fontsize=10, 
+        bbox=dict(boxstyle='round,pad=0.5', facecolor='white', alpha=0.7, edgecolor='gray')
+    )
+
+    ax.hist(IQ, bins=60, density=True, alpha=0.6)
+    ax.plot(x, norm.pdf(x, mu, std), 'k', linewidth=2)
+    ax.set_xlabel(args.dist)
+    ax.set_ylabel("Density")
+
+fig.suptitle(f"{args.dist} Distribution\nQubit-ID = {args.qu}", fontsize=16, fontweight='bold')
+plt.tight_layout()
+plt.savefig(plotpath + '/'+args.dist+'_dist_qu'+str(args.qu) +'.pdf')
