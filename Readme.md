@@ -317,7 +317,7 @@ To perform a better error mitigation study, there are two options:
 In the absence of level-zero data, this study persue the error mitigation with IBU method.
 
 ### IBU Method
-The Bayes method is based on reducing readout method by targetting the mis-identified states and reduce the readout error by changing the number of mis-identified counts. To begin with we take one of the ML algorithms and perform a grid search method to optimize the ML parameters and after training the data used the normalized confusion matrix (CM) from `scikit-learn`. 
+The Bayes method is based on reducing readout error by targetting the mis-identified states. To begin with we take one of the ML algorithms and perform a grid search method to optimize the ML parameters and after training the data used the normalized confusion matrix (CM) from `scikit-learn`. 
 
 The `scikit-learn` CM convention: columns represent the prediction/measured probabilities; rows are the prepared/true probabilities:
 
@@ -338,4 +338,4 @@ To compute the IBU reduction of the mis-identified shots for a ML algo, e.g. `sv
 
 The code produces the following confusion matrix plots:
 
-<img src="readout_cm.png" width="800">
+<img src="readout_cm_svc.png" width="800">
