@@ -22,7 +22,7 @@ parser = argparse.ArgumentParser(description="QEC IBM_FEZ")
 parser.add_argument("mlalgo", type=str,  help="ml: svc, bdt, gmm, lr, mah",   default='bdt')
 args = parser.parse_args()
 
-logger = utils.setup_logging(log_path=logpath + "/ml_readout.txt")
+logger = utils.setup_logging(log_path=logpath + "/ibu_rem.txt")
 logger.info(f'ML algo: {args.mlalgo}')
 
 # Data prep: download level=1 I&Q data for 15,000 shots for double-qubits four states: |00>, |11>, |01>, |10>; train-test split 
@@ -41,10 +41,8 @@ else: mdl = np.load(datapath + '/' + args.mlalgo + '.npz')
 y_pred = mdl.predict(X_test)
 cm = confusion_matrix(y_test, y_pred)
 
-'''
-# to get rid of scientific notation
-np.set_printoptions(suppress=True, precision=5)
-'''
+# np.set_printoptions(suppress=True, precision=5) # to get rid of scientific notation
+
 
 def run_2qubit_ibu(measured_counts, matrix_A, max_iterations=15):
     total_shots = np.sum(measured_counts)
@@ -92,15 +90,15 @@ fig, axes = plt.subplots(1, 2, figsize=(9, 4))
 
 # Raw Confusion Matrix
 sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=state_labels, yticklabels=state_labels, ax=axes[0],cbar_kws={'label': 'Counts'})
-axes[0].set_title('Raw Hardware Confusion Matrix\n(BDT Classifier Predictions)', fontsize=11, pad=10)
+axes[0].set_title(f'Confusion Matrix\n({args.mlalgo.upper()} Predictions)', fontsize=11, pad=10)
 axes[0].set_xlabel('Predicted State', fontsize=8)
 axes[0].set_ylabel('Prepared State (True)', fontsize=8)
 
 # Mitigated Matrix
 sns.heatmap(matrix_A_final, annot=True, fmt='d', cmap='Greens', xticklabels=state_labels, yticklabels=state_labels, ax=axes[1],cbar_kws={'label': 'Counts'})
-axes[1].set_title('Crosstalk-Mitigated Matrix\n(After 15 Iterations of IBU)', fontsize=11, pad=10)
+axes[1].set_title(f'{args.mlalgo.upper()} REM Confusion Matrix\n(After 15 Iterations)', fontsize=11, pad=10)
 axes[1].set_xlabel('Mitigated Target State', fontsize=8)
 axes[1].set_ylabel('Prepared State (True)', fontsize=8)
 
 plt.tight_layout()
-plt.savefig(plotpath + '/readout_cm.png')
+plt.savefig(plotpath + f'/readout_cm_{args.mlalgo}.png')
