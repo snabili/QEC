@@ -103,9 +103,7 @@ Software-designed qubits grouped from many physical qubits to act as a single, r
 To compute the logical error for various numbers of qubits, the following simulation strategy was used:
 
 - Worst-Case Extraction: Identify the highest physical error rates (gate and readout) from the specific IBM backend topology to set a realistic "noise floor"
-
 - Distance Scaling: Simulated the rotated surface code across distances $d=3$, $d=5$, and $d=7$ using Stim and the PyMatching decoder
-
 - Threshold Mapping: Perform a log-log linear interpolation to find the exact coordinates ($x, y$) where the distance curves intersect, to determine if the current hardware calibration is within the "correcting" or "failing" regime.
 
 To run the simulation:
@@ -113,6 +111,7 @@ To run the simulation:
 python test/comp_threshold.py
 ```
 The plot produced by this code:
+
 ![My Figure](p_threshold.png)
 
 Finally to extract the desired logical error, $p_L$, using the following formula:
@@ -139,19 +138,19 @@ To select the proper number of qubits and maitain their connectivity:
 python test/heavyhex_lattice.py X
 ```
 
-Where `X` is the central qubit in the patch. In `test/heavyhex_lattice.py` the patch distance is `d=3`, thus there are 17 qubits in total: $tot_{qubits} = 2d^2-1=17$, with $data_{qubit}=d^2=9$ and $ancilla_{qubit}=d^2-1=8$. In an ideal patch X and Z stabilizers (ancillas that measure Z and X errors are the same).
+Where `X` is the central qubit in the patch. In `test/heavyhex_lattice.py` the patch distance is `d=3`, thus there are 17 qubits in total: $tot_{qubits} = 2d^2-1=17$, with $data_{qubit}=d^2=9$ and $ancilla_{qubit}=d^2-1=8$. In an ideal patch the number of X and Z stabilizers (ancillas that measure Z and X errors) should be the same.
 
 The code above produces this plot:
 
 ![My Figure](logicpatch_syndromes.png)
 
-Stabilizers role are to find qubit flips' errors via certain qubits called Syndrome or Ancillas. Based on the type of the errors two separate stabilizers are designed
+Stabilizers role are to find qubit errors using a class of qubits called Syndrome or Ancillas. Based on the type of the errors, there are two types of stabilizers.
 
 ### X_Stabilizers:
-Their roles is to identify the $\textbf{Phase-Flip}$ errors, the kind of errors that occurs due to Z-Pauli operation on a qubit. To identify this error, X-Syndromes are used. The steps to identify the phase-flip error on quantum circuits:
+Their roles is to identify the $\textbf{Phase-Flip}$ errors, the kind of errors that occurs due to Z-Pauli operation on a qubit. To identify this error, X-Syndromes are used. To identify the phase-flip error on quantum circuits:
 
-- Reset data/ancilla qubits' state to $\lvert 0 \rangle$
-- Change qubit basis to X-Pauli basis by applying Hadamart gate; from $\lvert 0 \rangle \Rightarrow \lvert + \rangle$
+- Reset data/ancilla qubits' state to $\ket{0}$
+- Change qubit basis to X-Pauli basis by applying Hadamart gate; from $\ket{0} \Rightarrow \ket{+}$
 - Apply Z (Phase-Flip) error to data qubits
 - Apply CNOT gate by setting ancillas as control and data as target qubit: CNOT(A,D). This will cause the $\textbf{Phase Kickback}$ effect.
 - Apply Hadamart gate to ancillas to change basis to Z-basis
@@ -161,9 +160,9 @@ Their roles is to identify the $\textbf{Phase-Flip}$ errors, the kind of errors 
 
 
 ### Z_Stabilizers:
-Their roles is to identify the $\textbf{Bit-Flip}$ errors, the kind of errors that occurs due to X-Pauli operation on a data qubit. To identify this error, Z-Syndromes are used. The steps to identify the bit-flip error on quantum circuits:
+To identify the $\textbf{Bit-Flip}$ errors, the kind of errors that occurs due to X-Pauli operation on a data qubit. To identify this error, Z-Syndromes are used. The steps to identify the bit-flip error on quantum circuits:
 
-- Reset data/ancilla qubits' state to $\lvert 0 \rangle$
+- Reset data/ancilla qubits' state to $\ket{0}$
 - Apply X (Bit-Flip) error to data qubit
 - Apply CNOT gate by setting data as control and ancillas as target qubit: CNOT(D,A)
 - Measure ancillas
@@ -186,9 +185,9 @@ Syndrome Outcomes: {'00010100': 1024}
 Z_stabilizer (Should show flip in bit for Qubit 4 error):
 Syndrome Outcomes: {'00000010': 1024}
 ```
-
+## QC Error Simulation
 ### Simulating Crosstalk effect:
-Crosstalk arises from microwave‑pulse interference between neighboring qubits during gate execution. In practice, it refers to how a two‑qubit gate applied to a target pair can unintentionally disturb the state or performance of a nearby spectator qubit.
+Crosstalk arises from microwave‑pulse interference between neighboring qubits during any operation. In double-gate operation, it refers to how a two‑qubit gate applied to a target pair can unintentionally disturb the state or performance of a nearby spectator qubit.
 
 To observe this effect cleanly, the target pair should be chosen from qubits with low intrinsic gate error, ensuring that crosstalk is not masked by unrelated noise sources.
 
@@ -198,18 +197,18 @@ $$
 \theta = 2 \times \pi \times \xi \times t_{cz} 
 $$
 
-IBM’s tunable couplers typically limit $\xi$ to around $1 kHz$, which makes the real crosstalk effect extremely small. To make the effect visible in simulation, the code scales $\xi$ by a factor of 100.
+IBM’s tunable couplers typically limit $\xi$ to $1 kHz$, which makes the real crosstalk effect extremely small. To make the effect visible in simulation, the code scales $\xi$ by a factor of 100.
 
-Because IBM’s open‑access accounts provide limited access to real hardware backends, the crosstalk analysis is performed entirely on a simulated backend. To run the simulation, use the following code:
+Because IBM’s open‑access accounts provide limited access to real hardware backends, the crosstalk analysis is performed entirely on a simulated backend. To run the simulation, run the following code:
 
 ``` python test/xtalk_error.py ```
 
-The effect of crosstalk with $\xi = 100 kHz$ is shown below with Simultaneus being the Crosstalk included effect and the Isolated legend showing without the effect:
+The effect of crosstalk with $\xi = 100 kHz$ is shown below with `Simultaneus` being the Crosstalk included effect and the `Isolated` without the effect:
 
 <img src="xt_effect.png" width="500">
 
 ### Simulating Leakage error:
-Leakage occurs when a transmon qubit is excited to energy states beyond the computational subspace ($\ket{0}$ and $\ket{1}$). While the anharmonicity—provided by the nonlinear inductance of the Josephson Junction—is designed to isolate the first two levels, high-speed microwave (MW) pulses can still inadvertently drive transitions to higher energy levels, such as the $\ket{2}$ state.
+Leakage occurs when a transmon qubit is excited to energy states beyond the computational subspace ($\ket{0}$ and $\ket{1}$). While the anharmonicity—provided by the nonlinear inductance (Josephson Junction) is designed to isolate the first two levels, high-speed microwave (MW) pulses can still inadvertently drive transitions to higher energy levels, such as the $\ket{2}$ state.
 
 To analyze these effects, this simulation utilizes the following framework:
 
@@ -248,23 +247,24 @@ The script generates a connectivity map of the backend where qubits are color-co
 
 Highest error is the readout error and therefore the study of readout error and the possibility of reducing it is the main goal hereby.
 
-## Readout Error and its mitigation
-Readout error is the result of errors affecting the state of TLS qubits, such that $\ket{0}$ and $\ket{1}$ are mismeasured. The source of this error could be:
+# Readout Error and its mitigation (REM)
+Readout error occurs when the state of a qubit is mismeasured during readout (e.g., measuring a $\ket{0}$ as a $\ket{1}$ or vice versa). In superconducting qubit architectures, this degradation is typically driven by several physical and environmental factors:
 
-1. Short decay time or low $T_1$;
-2. Hardware noises;
-3. Thermal noise;
-4. Dispersive shift between resonator and qubit;
-5. Numerical Controller Oscillator (NCO) frequency mismatches with Intermidiate Frequency (IF);
-6. Crosstalk between adjacent qubits;
-7. Leakage of neighboring qubits;
+1. Short Relaxation Times: Low $T_1$ times causing state decay during the measurement pulse
+2. Thermal Population: Residual thermal excitations causing population mixing
+3. Instrumentation Noise: Electronic noise in the cryogenic amplification chain (e.g., TWPAs, HEMTs)
+4. Suboptimal Dispersive Shifts: Insufficient dispersive coupling ($\chi$) between the readout resonator and the qubit
+5. Phase/Frequency Mismatches: Numerical Controlled Oscillator (NCO) frequency mismatches with the Intermediate Frequency (IF) signal
+6. Crosstalk: Signal bleeding and residual interactions between adjacent qubits
+7. Leakage Overlap: Population leakage to higher-order transmon states ($\ket{2}$, $\ket{3}$) mimicking standard computational states
 
-For more details on how readout system works in superconducting quantum computers: [QEC slides](QEC_IBM.pdf)
+For a comprehensive overview of superconducting readout hardware configurations, refer to the [QEC slides](QEC_IBM.pdf)
 
-To understand the effect of noises on the readout error, the raw readout voltages are extracted via the `StateTomography` class of the `qiskit_experiments` library. For more details on readout error mitigation methods used in this study see [IQ Notebook](IQ_helper.ipynb).
+## Characterization & Data Extraction:
+To analyze how these noise channels degrade readout fidelity, raw single-shot IQ voltage data is extracted using the `StateTomography` framework from the `qiskit_experiments` library. Detailed implementations of the linear, non-linear, and statistical classification methods used for state discrimination can be found in the [IQ Analysis Notebook](IQ_helper.ipynb).
 
-
-To run the code to extract two neighboring qubits (for qubit=`127` and neighboring qubit with highest readout error) and extract the four states ($\ket{00}, \ket{01}, \ket{10}, \ket{11}$), run this:
+### Running the Extraction Script:
+To isolate a spectator-target qubit pair (specifically Target Qubit `127` and its highest-error nearest neighbor) and extract the raw data for the four computational basis states ($\ket{00}, \ket{01}, \ket{10}, \ket{11}$), execute the following command:
 
 `python test/iq_data.py 127`
 
@@ -274,15 +274,27 @@ To plot and visualize the double-qubit IQ data for double-qubit run:
  
  <img src="iq_plot.png" width="600">
 
-### Readout error mitigation tools
-To enhance the IQ separation among double-qubits various states, the mahalanobis parameter is used primarily to remove the outliers from the IQ data points. This plot shows how using Mahalanobis distance and its modified version (MCD) that removes outliers in diagonal IQ space, improves the readout error by separating IQ data points. The plot shows the amount of improvment is more visible for qubit 127. At the time of this study, the readout fidelity for qubits 128, 127 wehre 95% and 92% respectively.
+### Readout Error Mitigation via Outlier Rejection
+To optimize the discriminative separation between multi-qubit single-shot $I/Q$ clusters, outlier mitigation is implemented using the Mahalanobis distance metric. This metric accounts for the directional variance and covariance of the distributed $I/Q$ voltage points, providing an effective threshold for filtering anomalous measurements.
+
+To prevent leverage points and extreme anomalies from biasing the baseline cluster characteristics, we employ a modified approach leveraging the Minimum Covariance Determinant (MCD). The MCD algorithm provides a highly robust estimator for the location and scatter of the data, allowing the model to calculate uncorrupted Mahalanobis distances even in the presence of dense, overlapping noise in the diagonal $I/Q$ space.
+
+Filtering these statistical outliers yields an moderate reduction in overlapping classification ambiguities, especially by improving the effective boundaries between the four joint computational states ($\ket{00}, \ket{01}, \ket{10}, \ket{11}$).
+
+This mitigation framework demonstrates an impact on lower-performing hardware components. Specifically, the improvement is presented hereby for Qubit 127. At the baseline of this study, the raw unmitigated readout fidelities for Qubits 128 and 127 were recorded at $95\%$ and $92\%$, respectively; removing structured $I/Q$ outliers via robust distance thresholds serves as a first-line approach to mitigate the readout error and to improve the fidelity on the noisier channels.
 
 <img src="maha_qu1-10_qu2-01.png" width="800">
 
-### ML on IQ Map
-Used these classification ML algorithms to assess the readout error ML is able to achieve: SVC, Logistic Regression, BDT, GMM and Mahalanobis distance. 
-### Data Prep:
-Used double neighboring qubits I&Q data prepared in four states ($\ket{00}, \ket{01}, \ket{10}, \ket{11}$). Split train-test data by 80-20%, and used `scikit-learn` package. The resulted fidelity for individual states and the mean of states:
+### The Use of Machine Learning and State Discrimination
+The efficacy of various supervised and unsupervised classification algorithms for multi-qubit state discrimination on the $I/Q$ voltage plane was evaluated. The benchmarked models include:
+- Linear Baselines: Logistic Regression (LR) and Mahalanobis Distance Classifier (MAH)
+- Non-Linear Classifiers: Support Vector Classification (SVC) with an RBF kernel and Boosted Decision Trees (BDT)
+- Probabilistic Clustering: Gaussian Mixture Models (GMM).
+
+### Data Preparation & Benchmarks
+The dataset consists of single-shot $I/Q$ paired-qubit measurements prepared across the four computational basis states ($\ket{00}, \ket{01}, \ket{10}, \ket{11}$). The dataset was split into an $80/20\%$ train-test ratio using `scikit-learn`.
+
+The resulting state-specific read-out fidelities and their corresponding ensemble means are detailed below:
 
 ```
 State      | LR  Fidelity      | SVC Fidelity  | GMM Fidelity  |  MAH Fidelity    | BDT Fidelity   
@@ -294,7 +306,7 @@ State      | LR  Fidelity      | SVC Fidelity  | GMM Fidelity  |  MAH Fidelity  
 mean:      |      0.955        |       0.955   |     0.955     |     0.955     |     0.955
 ```
 
-To run ML algos report as above, and make the plot of I&Q map with the ML boundaries, e.g. svc: 
+To evaluate a specific model and generate the corresponding $I/Q$ space decision boundaries (e.g., using svc), execute:
 
 `python test/ml_readout.py svc`
 
@@ -302,40 +314,40 @@ This command produces this plot:
 
 <img src="iqmap_ml-svc_boundaries.png" width="600">
 
-To hypertune the non-linear ML algos above, e.g., bdt, run the following command:
+To perform hyperparameter optimization via grid search for the non-linear models (e.g., bdt), run:
 
 `python test/ml_gridsearch.py bdt`
 
-## Path Forward
-As it is shown the performance is not that different, the difference is within less than 0.5%. The reason is because the boundary between different states are kind of linear and the ML non-linear algorithms are not capable of distinguishing different states from the integrated I and Q values. 
+### Architectural Outlook & Readout Bottlenecks
 
-To perform a better error mitigation study, there are two options:
+As indicated by the benchmark table, the performance discrepancy across all models is negligible ($\le 0.5\%$), with the mean fidelity converging identically at $95.5\%$. This behavioral equivalence implies that the state clusters are fundamentally linearly separable within the time-integrated $I/Q$ feature space. Consequently, introducing non-linear kernel mappings or tree-based splits yields no statistical advantage over a simple linear hyperplane.
 
-1. To use the non integrated voltages and extract the raw time-dependent I and Q data, known as level-zero data, and apply noise mitigation algorithms. In addition to noise reduction (due to the resonator filling and depleting), one could detect the shots where the excited states decay back to the ground states.
-2. Use Iterative-Bayesian-Unforlding (IBU) techniques to mitigate readout errors. 
+To surpass this hardware-bound classification ceiling, two independent error mitigation paths are available:
+- Time-Resolved Single-Shot Trajectories (Level-0 Data): Bypassing time-integration to analyze raw, time-dependent voltage traces. This approach allows noise filters to account for transient resonator dynamics (filling/depletion) and enables the algorithmic detection of mid-readout longitudinal relaxation ($\ket{1} \rightarrow \ket{0}$ transitions)
+- Statistical Readout Error Mitigation (REM): Utilizing classical post-processing techniques to invert the stochastic assignment errors introduced during the measurement process.
 
-In the absence of level-zero data, this study persue the error mitigation with IBU method.
+Given that open-source cloud architectures abstract away time-resolved Level-0 traces, this framework implements Readout Error Mitigation via Iterative Bayesian Unfolding (IBU)
 
-### IBU Method
-The Bayes method is based on reducing readout error by targetting the mis-identified states. To begin with we take one of the ML algorithms and perform a grid search method to optimize the ML parameters and after training the data used the normalized confusion matrix (CM) from `scikit-learn`. 
+### Readout Mitigation via Iterative Bayesian Unfolding (IBU)
+The IBU method minimizes assignment errors by probabilistically redistributing misclassified counts. The process begins by extracting the classical assignment probability behavior from a selected baseline classifier (e.g., svc) following hyperparameter optimization. 
 
-The `scikit-learn` CM convention: columns represent the prediction/measured probabilities; rows are the prepared/true probabilities:
+To map these assignment errors using the standardized `scikit-learn`, the confusion matrix ($CM$) convention should be identified to avoid wrong result. The $CM$ rows designate the prepared target state ($T_{ij}$) and columns represent the measured/predicted state ($M_{ij}$):
 
-$$
-CM_{\text{scikit-learn}} = \begin{bmatrix}
-T00M00 & T00M01 & T00M10 & T00M11 \\
-T01M00 & T01M01 & T01M10 & T01M11 \\
-T10M00 & T10M01 & T10M10 & T10M11 \\
-T11M00 & T11M01 & T11M10 & T11M11
-\end{bmatrix}
-$$
+$$CM = \begin{bmatrix}
+    P(M_{00} \mid T_{00}) & P(M_{01} \mid T_{00}) & P(M_{10} \mid T_{00}) & P(M_{11} \mid T_{00}) \\
+    P(M_{00} \mid T_{01}) & P(M_{01} \mid T_{01}) & P(M_{10} \mid T_{01}) & P(M_{11} \mid T_{01}) \\
+    P(M_{00} \mid T_{10}) & P(M_{01} \mid T_{10}) & P(M_{10} \mid T_{10}) & P(M_{11} \mid T_{10}) \\
+    P(M_{00} \mid T_{11}) & P(M_{01} \mid T_{11}) & P(M_{10} \mid T_{11}) & P(M_{11} \mid T_{11})
+\end{bmatrix}$$
 
-With IBU the strategy is: given the measurement $M_i$ what is the probability that the shot was originated as $T_j$: P($T_j|M_i$)
+The IBU core algorithm iteratively applies Bayes' theorem to solve the inverse problem: 
 
-To compute the IBU reduction of the mis-identified shots for a ML algo, e.g. `svc`:
+Calculating the conditional probability that a system was prepared in a true state given a specific noisy measurement observation, expressed as $P(T_j \mid M_i)$.
+
+To compute the unfolded state distributions and mitigate misidentified single-shot outcomes using a given model configuration (e.g., `svc`), run:
 
 `python test/ibu_readout.py svc`
 
-The code produces the following confusion matrix plots:
+This execution generates the raw and mitigated comparison confusion matrices:
 
 <img src="readout_cm_svc.png" width="800">
