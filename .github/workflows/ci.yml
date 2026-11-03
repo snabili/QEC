@@ -25,7 +25,7 @@ jobs:
           auto-update-conda: true
           python-version: "3.10"
           activate-environment: qecenv
-          environment-file: environment.yml
+          environment-file: qec_env.yml
           use-mamba: true
 
       - name: Install package in editable mode
