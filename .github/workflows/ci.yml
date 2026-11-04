@@ -28,10 +28,10 @@ jobs:
           environment-file: qec_env.yml
           use-mamba: true
 
-      - name: Install package in editable mode
-        run: |
-          pip install -e .
+      #- name: Install package in editable mode
+      #  run: |
+      #    pip install -e .
 
       - name: Run tests with pytest
         run: |
-          pytest
+	  PYTHONPATH=. pytest
