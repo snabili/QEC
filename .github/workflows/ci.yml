@@ -30,4 +30,4 @@ jobs:
 
       - name: Run tests with pytest
         run: |
-          pytest test/iq_plot.py -v
+          pytest test/iq_plot.py --some-argument value

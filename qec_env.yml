@@ -17,5 +17,6 @@ dependencies:
     - qiskit
     - qiskit-aer
     - qiskit-experiments
+    - qiskit_dynamics
     - pylatexenc
     - pytest
