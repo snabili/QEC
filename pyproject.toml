@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qec"
+version = "0.1.0"
+description = "Quantum Error Correction simulation and analysis tools"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "scipy",
+    "pandas",
+    "matplotlib",
+    "seaborn",
+    "xgboost",
+    "stim>=1.15.0",
+    "pymatching>=2.3.1",
+    "qiskit",
+    "qiskit-aer",
+    "qiskit-experiments",
+    "pylatexenc"
+]
+
+[tool.setuptools.packages.find]
+include = ["qec*"]
